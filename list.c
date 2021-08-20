@@ -8,9 +8,11 @@
 		exit(EXIT_FAILURE);                                            \
 	} while (0)
 
-void enqueue(struct passenger **head, struct passenger **tail, enum passenger_type type)
+void enqueue(struct passenger **head, struct passenger **tail,
+	     enum passenger_type type)
 {
-	struct passenger *node = (struct passenger *)malloc(sizeof(struct passenger));
+	struct passenger *node =
+		(struct passenger *)malloc(sizeof(struct passenger));
 	if (node == NULL)
 		handle_error("malloc");
 
@@ -27,7 +29,6 @@ void enqueue(struct passenger **head, struct passenger **tail, enum passenger_ty
 	*tail = node;
 }
 
-
 enum passenger_type dequeue(struct passenger **head, struct passenger **tail)
 {
 	struct passenger *node = *head;
@@ -41,4 +42,3 @@ enum passenger_type dequeue(struct passenger **head, struct passenger **tail)
 	free(node);
 	return ret;
 }
-

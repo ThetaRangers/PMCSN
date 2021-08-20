@@ -1,4 +1,4 @@
-#if !defined( _UTILS_ )
+#if !defined(_UTILS_)
 #define _UTILS_
 
 #include "list.h"
