@@ -57,6 +57,9 @@ int main() {
   	t.arrival    = getArrival();    /* schedule the first arrival            */
   	t.completion = INFINITY;        /* the first event can't be a completion */
 
+	struct passenger *tempHead = NULL;
+	struct passenger *tempTail = NULL;
+
 	int rikky = 0;
 	int povery = 0;
 	
@@ -69,7 +72,7 @@ int main() {
 		if(t.current == t.arrival) {
 			number++;
 			t.arrival = getArrival();
-			append_node(getPassenger());
+			enqueue(&tempHead, &tempTail,getPassenger());
 			if (t.arrival > STOP)  {
         		t.last      = t.current;
         		t.arrival   = INFINITY;
@@ -85,7 +88,7 @@ int main() {
        	 		t.completion = t.current + getService();
 				
 				
-				if(dequeue_node() == FIRST_CLASS) {
+				if(dequeue(&tempHead, &tempTail) == FIRST_CLASS) {
 					printf("Ricco\n");
 					rikky++;
 				} else {

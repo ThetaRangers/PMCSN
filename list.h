@@ -9,12 +9,9 @@ enum passenger_type {
 struct passenger {
 	enum passenger_type type;
 	struct passenger* next;
-	struct passenger* prev;
 };
 
-struct passenger *append_node(enum passenger_type type);
-enum passenger_type dequeue_node();
-void remove_node(struct passenger *node);
-void remove_all();
+void enqueue(struct passenger **head, struct passenger **tail,enum passenger_type type);
+enum passenger_type dequeue(struct passenger **head, struct passenger **tail);
 
 #endif
