@@ -37,7 +37,8 @@ double getService()
 	return (Erlang(5, 0.3)); //Change
 }
 
-int main() {
+int main()
+{
 	struct {
 		double arrival; /* next arrival time */
 		double completion; /* next completion time */
@@ -63,7 +64,7 @@ int main() {
 
 	//SINGOLA TEMPURADURA
 	// || (number > 0)
-	while ((t.arrival < STOP)) {
+	while ((t.arrival < STOP) || number > 0) {
 		t.next = min(t.arrival, t.completion);
 		t.current = t.next;
 
@@ -81,22 +82,18 @@ int main() {
 		} else {
 			//Servizietto
 			number--;
-
-			if (number > 0) {
-				t.completion = t.current + getService();
-
-				if (dequeue(&tempHead, &tempTail) ==
-				    FIRST_CLASS) {
-					printf("Ricco\n");
-					rikky++;
-				} else {
-					printf("Povero\n");
-					povery++;
-				}
-
+			if (dequeue(&tempHead, &tempTail) == FIRST_CLASS) {
+				printf("Ricco\n");
+				rikky++;
 			} else {
-				t.completion = INFINITY;
+				printf("Povero\n");
+				povery++;
 			}
+
+			if (number > 0)
+				t.completion = t.current + getService();
+			else
+				t.completion = INFINITY;
 		}
 	}
 
