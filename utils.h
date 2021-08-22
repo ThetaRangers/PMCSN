@@ -8,10 +8,10 @@ enum node_type { TEMP, CHECK, SECURITY };
 struct node {
 	struct passenger *head;
 	struct passenger *tail;
-    int number;
+	int number;
 	double completion;
 	int id; //Server id
-    enum node_type type;
+	enum node_type type;
 };
 
 double min(double a, double c);

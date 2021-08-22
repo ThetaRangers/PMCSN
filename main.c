@@ -19,20 +19,21 @@ enum stream { ARRIVAL, SERVICE, ROUTING };
 
 int nodesNumber = TEMP_NODE + CHECK_NODE + SECURITY_NODE;
 
-void findEvent() {
-
+void findEvent()
+{
 }
 
-int getDestination(enum node_type type) {
-	switch(type) {
-		case TEMP:
-			return Equilikely(0, TEMP_NODE - 1);
-		case CHECK:
-			return Equilikely(TEMP_NODE, CHECK_NODE - 1);
-		case SECURITY:
-			return Equilikely(CHECK_NODE, SECURITY_NODE - 1);
-		default:
-			return 0;
+int getDestination(enum node_type type)
+{
+	switch (type) {
+	case TEMP:
+		return Equilikely(0, TEMP_NODE - 1);
+	case CHECK:
+		return Equilikely(TEMP_NODE, CHECK_NODE - 1);
+	case SECURITY:
+		return Equilikely(CHECK_NODE, SECURITY_NODE - 1);
+	default:
+		return 0;
 	}
 }
 
@@ -41,25 +42,24 @@ double getArrival()
 	static double arrival = START;
 
 	SelectStream(0);
-	arrival += Exponential(
-		2.0); //Change this
+	arrival += Exponential(2.0); //Change this
 	return (arrival);
 }
 
 double getService(enum node_type type)
 {
-	switch(type) {
-		case TEMP:
-			SelectStream(1);
-			return (Erlang(5, 0.3)); //Change
-		case CHECK:
-			SelectStream(1);
-			return (Erlang(5, 0.3)); //Change
-		case SECURITY:
-			SelectStream(1);
-			return (Erlang(5, 0.3)); //Change
-		default:
-			return 0;
+	switch (type) {
+	case TEMP:
+		SelectStream(1);
+		return (Erlang(5, 0.3)); //Change
+	case CHECK:
+		SelectStream(1);
+		return (Erlang(5, 0.3)); //Change
+	case SECURITY:
+		SelectStream(1);
+		return (Erlang(5, 0.3)); //Change
+	default:
+		return 0;
 	}
 }
 
@@ -84,16 +84,19 @@ int main()
 	//t.completion = INFINITY; /* the first event can't be a completion */
 
 	//Initialize nodes
-	for(int i = 0; i < nodesNumber; i++) {
+	for (int i = 0; i < nodesNumber; i++) {
 		nodes[i].completion = INFINITY;
 		nodes[i].head = NULL;
 		nodes[i].tail = NULL;
 		nodes[i].id = i;
 		nodes[i].number = 0;
 
-		if(i < TEMP_NODE) nodes[i].type = TEMP;
-		else if(i < TEMP_NODE + CHECK_NODE) nodes[i].type = CHECK;
-		else if(i < TEMP_NODE + CHECK_NODE + SECURITY_NODE) nodes[i].type = SECURITY_NODE;
+		if (i < TEMP_NODE)
+			nodes[i].type = TEMP;
+		else if (i < TEMP_NODE + CHECK_NODE)
+			nodes[i].type = CHECK;
+		else if (i < TEMP_NODE + CHECK_NODE + SECURITY_NODE)
+			nodes[i].type = SECURITY_NODE;
 	}
 
 	int rikky = 0;
@@ -104,7 +107,8 @@ int main()
 	int id;
 	while ((t.arrival < STOP) || number > 0) {
 		double minCompletion = minNode(nodes, nodesNumber, &id);
-		printf("Min completion: %lf id: %d arrival: %lf\n", minCompletion, id, t.arrival);
+		printf("Min completion: %lf id: %d arrival: %lf\n",
+		       minCompletion, id, t.arrival);
 		t.next = min(t.arrival, minCompletion);
 		t.current = t.next;
 
@@ -116,7 +120,8 @@ int main()
 			nodes[destination].number++;
 			printf("Routing in %d\n", destination);
 
-			enqueue(&nodes[destination].head, &nodes[destination].tail, getPassenger());
+			enqueue(&nodes[destination].head,
+				&nodes[destination].tail, getPassenger());
 			if (t.arrival > STOP) {
 				t.last = t.current;
 				t.arrival = INFINITY;
@@ -124,21 +129,25 @@ int main()
 
 			//OK?
 			if (nodes[destination].number == 1)
-				nodes[destination].completion = t.current + getService(nodes[destination].type);
-			
+				nodes[destination].completion =
+					t.current +
+					getService(nodes[destination].type);
+
 		} else {
 			//Servizietto
 			number--;
 			nodes[id].number--;
 			printf("Deque in %d\n", id);
-			if (dequeue(&nodes[id].head, &nodes[id].tail) == FIRST_CLASS) {
+			if (dequeue(&nodes[id].head, &nodes[id].tail) ==
+			    FIRST_CLASS) {
 				rikky++;
 			} else {
 				povery++;
 			}
 
 			if (nodes[id].number > 0)
-				nodes[id].completion = t.current + getService(nodes[id].type);
+				nodes[id].completion =
+					t.current + getService(nodes[id].type);
 			else
 				nodes[id].completion = INFINITY;
 		}

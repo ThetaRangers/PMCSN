@@ -21,15 +21,16 @@ enum passenger_type getPassenger()
 	return SECOND_CLASS;
 }
 
-double minNode(struct node *nodes, int len, int *id) {
-    double minCompletion = nodes[0].completion;
-    *id = 0;
-    for(int i = 1; i < len; i++) {
-        minCompletion = min(minCompletion, nodes[i].completion);
-        if(nodes[i].completion == minCompletion) {
-            *id = i;
-        }
-    }
+double minNode(struct node *nodes, int len, int *id)
+{
+	double minCompletion = nodes[0].completion;
+	*id = 0;
+	for (int i = 1; i < len; i++) {
+		minCompletion = min(minCompletion, nodes[i].completion);
+		if (nodes[i].completion == minCompletion) {
+			*id = i;
+		}
+	}
 
-    return minCompletion;
+	return minCompletion;
 }
