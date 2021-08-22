@@ -12,14 +12,29 @@
 
 #define TEMP_NODE 2
 #define CHECK_NODE 4
+#define DROPOFF_ONLINE 1
 #define SECURITY_NODE 3
 
 enum stream { ARRIVAL, SERVICE, ROUTING };
 
-struct tempNode {
-	struct passenger *head;
-	int id; //Server id
-};
+int nodesNumber = TEMP_NODE + CHECK_NODE + SECURITY_NODE;
+
+void findEvent() {
+
+}
+
+int getDestination(enum node_type type) {
+	switch(type) {
+		case TEMP:
+			return Equilikely(0, TEMP_NODE - 1);
+		case CHECK:
+			return Equilikely(TEMP_NODE, CHECK_NODE - 1);
+		case SECURITY:
+			return Equilikely(CHECK_NODE, SECURITY_NODE - 1);
+		default:
+			return 0;
+	}
+}
 
 double getArrival()
 {
@@ -27,21 +42,33 @@ double getArrival()
 
 	SelectStream(0);
 	arrival += Exponential(
-		2.0); //Change this(?) AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPIEDINISINDACAAAAAAAA
+		2.0); //Change this
 	return (arrival);
 }
 
-double getService()
+double getService(enum node_type type)
 {
-	SelectStream(1);
-	return (Erlang(5, 0.3)); //Change
+	switch(type) {
+		case TEMP:
+			SelectStream(1);
+			return (Erlang(5, 0.3)); //Change
+		case CHECK:
+			SelectStream(1);
+			return (Erlang(5, 0.3)); //Change
+		case SECURITY:
+			SelectStream(1);
+			return (Erlang(5, 0.3)); //Change
+		default:
+			return 0;
+	}
 }
 
 int main()
 {
+	struct node nodes[nodesNumber];
+
 	struct {
 		double arrival; /* next arrival time */
-		double completion; /* next completion time */
 		double current; /* current time */
 		double next; /* next (most imminent) event time */
 		double last; /* last arrival time */
@@ -54,46 +81,66 @@ int main()
 
 	t.current = START; /* set the clock */
 	t.arrival = getArrival(); /* schedule the first arrival */
-	t.completion = INFINITY; /* the first event can't be a completion */
+	//t.completion = INFINITY; /* the first event can't be a completion */
 
-	struct passenger *tempHead = NULL;
-	struct passenger *tempTail = NULL;
+	//Initialize nodes
+	for(int i = 0; i < nodesNumber; i++) {
+		nodes[i].completion = INFINITY;
+		nodes[i].head = NULL;
+		nodes[i].tail = NULL;
+		nodes[i].id = i;
+		nodes[i].number = 0;
+
+		if(i < TEMP_NODE) nodes[i].type = TEMP;
+		else if(i < TEMP_NODE + CHECK_NODE) nodes[i].type = CHECK;
+		else if(i < TEMP_NODE + CHECK_NODE + SECURITY_NODE) nodes[i].type = SECURITY_NODE;
+	}
 
 	int rikky = 0;
 	int povery = 0;
 
 	//SINGOLA TEMPURADURA
 	// || (number > 0)
+	int id;
 	while ((t.arrival < STOP) || number > 0) {
-		t.next = min(t.arrival, t.completion);
+		double minCompletion = minNode(nodes, nodesNumber, &id);
+		printf("Min completion: %lf id: %d arrival: %lf\n", minCompletion, id, t.arrival);
+		t.next = min(t.arrival, minCompletion);
 		t.current = t.next;
 
 		if (t.current == t.arrival) {
 			number++;
 			t.arrival = getArrival();
-			enqueue(&tempHead, &tempTail, getPassenger());
+
+			int destination = getDestination(TEMP);
+			nodes[destination].number++;
+			printf("Routing in %d\n", destination);
+
+			enqueue(&nodes[destination].head, &nodes[destination].tail, getPassenger());
 			if (t.arrival > STOP) {
 				t.last = t.current;
 				t.arrival = INFINITY;
 			}
 
-			if (number == 1)
-				t.completion = t.current + getService();
+			//OK?
+			if (nodes[destination].number == 1)
+				nodes[destination].completion = t.current + getService(nodes[destination].type);
+			
 		} else {
 			//Servizietto
 			number--;
-			if (dequeue(&tempHead, &tempTail) == FIRST_CLASS) {
-				printf("Ricco\n");
+			nodes[id].number--;
+			printf("Deque in %d\n", id);
+			if (dequeue(&nodes[id].head, &nodes[id].tail) == FIRST_CLASS) {
 				rikky++;
 			} else {
-				printf("Povero\n");
 				povery++;
 			}
 
-			if (number > 0)
-				t.completion = t.current + getService();
+			if (nodes[id].number > 0)
+				nodes[id].completion = t.current + getService(nodes[id].type);
 			else
-				t.completion = INFINITY;
+				nodes[id].completion = INFINITY;
 		}
 	}
 
