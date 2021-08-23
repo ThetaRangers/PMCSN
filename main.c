@@ -12,20 +12,21 @@
 
 #define TEMP_NODE 2
 #define CHECK_NODE 4
-#define DROPOFF_ONLINE 1
 #define SECURITY_NODE 3
+#define DROPOFF_ONLINE 1
 
 #define FEVER_PERC 0.1
-#define ONLINE_PERC 0.3
-#define CHECK_PERC 0.6
+#define ONLINE_PERC 0.6
+#define CHECK_PERC 0.4
 
 enum stream { ARRIVAL, SERVICE, ROUTING };
 
 int febbra = 0;
 int online = 0;
+int dropoff = 0;
 int normal = 0;
 
-int nodesNumber = TEMP_NODE + CHECK_NODE + SECURITY_NODE;
+int nodesNumber = TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROPOFF_ONLINE;
 
 void findEvent()
 {
@@ -39,22 +40,26 @@ int getDestination(enum node_type type)
 		return Equilikely(0, TEMP_NODE - 1);
 	case CHECK:
 		rand = Random();
-		if (rand < CHECK_PERC) {
-			//???????
+		if (rand < CHECK_PERC * (1 - FEVER_PERC)) {
 			rand = rand/CHECK_PERC;
 			normal++;
-		} else if (rand < CHECK_PERC + ONLINE_PERC) {
-			online++;
+		} else if (rand < (CHECK_PERC + ONLINE_PERC) * (1 - FEVER_PERC)) {
+			if(rand > 0.8) {
+				dropoff++;
+				return TEMP_NODE + CHECK_NODE + SECURITY_NODE;
+			} else {
+				online++;
+				return getDestination(SECURITY);
+			}
 		} else {
 			febbra++;
 			return -1;
 		}
 
-		int destination = (TEMP_NODE + (long)(CHECK_NODE) * rand);
-		
+		int destination = (TEMP_NODE + ((long)CHECK_NODE * rand));
+
 		return destination;
 	case SECURITY:
-		printf("Security\n");
 		return Equilikely(TEMP_NODE + CHECK_NODE, TEMP_NODE + CHECK_NODE + SECURITY_NODE - 1);
 	default:
 		return 0;
@@ -80,6 +85,9 @@ double getService(enum node_type type)
 		SelectStream(1);
 		return (Erlang(5, 0.3)); //Change
 	case SECURITY:
+		SelectStream(1);
+		return (Erlang(5, 0.3)); //Change
+	case DROP_OFF:
 		SelectStream(1);
 		return (Erlang(5, 0.3)); //Change
 	default:
@@ -120,6 +128,8 @@ int main()
 			nodes[i].type = CHECK;
 		else if (i < TEMP_NODE + CHECK_NODE + SECURITY_NODE)
 			nodes[i].type = SECURITY;
+		else if (i < TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROPOFF_ONLINE)
+			nodes[i].type = DROP_OFF;
 	}
 
 	int rikky = 0;
@@ -180,10 +190,12 @@ int main()
 					enqueue(&nodes[destination].head,&nodes[destination].tail, pass_type);
 					if (nodes[destination].number == 1)
 						nodes[destination].completion = t.current + getService(nodes[destination].type);
+				} else {
+					number--;
 				}
 
 				break;
-				
+			case DROP_OFF:
 			case CHECK:
 				pass_type = dequeue(&nodes[id].head, &nodes[id].tail);
 				
@@ -204,8 +216,7 @@ int main()
 			case SECURITY:
 				number--;
 				pass_type = dequeue(&nodes[id].head, &nodes[id].tail);
-				if (pass_type ==
-					FIRST_CLASS) {
+				if (pass_type == FIRST_CLASS) {
 					rikky++;
 				} else {
 					povery++;
@@ -222,7 +233,7 @@ int main()
 		}
 	}
 
-	printf("Ricchi: %d , Poveri: %d\n, Tot Arrivi: %d, Sum completion: %d", rikky, povery, tot_arrivals, rikky + povery);
-	printf("Febbra: %d, Online: %d, Normale: %d", febbra, online, normal);
+	printf("Ricchi: %d , Poveri: %d, Tot Arrivi: %d, Sum completion: %d\n", rikky, povery, tot_arrivals, rikky + povery);
+	printf("Febbra: %d, Online: %d, Normale: %d, Dropoff: %d\n", febbra, online, normal, dropoff);
 	return 0;
 }

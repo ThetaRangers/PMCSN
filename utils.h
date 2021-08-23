@@ -3,7 +3,7 @@
 
 #include "list.h"
 
-enum node_type { TEMP, CHECK, SECURITY };
+enum node_type { TEMP, CHECK, SECURITY, DROP_OFF };
 
 struct node {
 	struct passenger *head;
