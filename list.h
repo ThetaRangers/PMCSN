@@ -5,6 +5,7 @@ enum passenger_type { FIRST_CLASS, SECOND_CLASS };
 
 struct passenger {
 	enum passenger_type type;
+	double arrival; //TODO
 	struct passenger *next;
 };
 

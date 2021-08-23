@@ -8,6 +8,7 @@
 		exit(EXIT_FAILURE);                                            \
 	} while (0)
 
+//TODO arrivals 
 void enqueue(struct passenger **head, struct passenger **tail,
 	     enum passenger_type type)
 {
