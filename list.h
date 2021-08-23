@@ -5,12 +5,13 @@ enum passenger_type { FIRST_CLASS, SECOND_CLASS };
 
 struct passenger {
 	enum passenger_type type;
-	double arrival; //TODO
+	double arrival;
 	struct passenger *next;
 };
 
 void enqueue(struct passenger **head, struct passenger **tail,
-	     enum passenger_type type);
-enum passenger_type dequeue(struct passenger **head, struct passenger **tail);
+	     enum passenger_type type, double arrival);
+void dequeue(struct passenger **head, struct passenger **tail,
+		 enum passenger_type *type, double *arrival);
 
 #endif

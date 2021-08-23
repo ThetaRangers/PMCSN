@@ -147,13 +147,16 @@ int main()
 		if (t.current == t.arrival) {
 			number++;
 			tot_arrivals++;
+			
+			int destination = getDestination(TEMP);
+			
+			enqueue(&nodes[destination].head,
+				&nodes[destination].tail, getPassenger(), t.arrival);
 			t.arrival = getArrival();
 
-			int destination = getDestination(TEMP);
+			
 			nodes[destination].number++;
 
-			enqueue(&nodes[destination].head,
-				&nodes[destination].tail, getPassenger());
 			if (t.arrival > STOP) {
 				t.last = t.current;
 				t.arrival = INFINITY;
@@ -166,6 +169,7 @@ int main()
 
 		} else {
 			//Servizietto
+			double arrival;
 			int destination;
 			enum passenger_type pass_type;
 			enum node_type completion_type =  nodes[id].type;
@@ -173,7 +177,7 @@ int main()
 
 			switch(completion_type) {
 			case TEMP:
-				pass_type = dequeue(&nodes[id].head, &nodes[id].tail);
+				dequeue(&nodes[id].head, &nodes[id].tail, &pass_type, &arrival);
 
 				if (nodes[id].number > 0)
 					nodes[id].completion =
@@ -185,7 +189,7 @@ int main()
 				destination = getDestination(CHECK);
 				if(destination != -1) {
 					nodes[destination].number++;
-					enqueue(&nodes[destination].head,&nodes[destination].tail, pass_type);
+					enqueue(&nodes[destination].head,&nodes[destination].tail, pass_type, arrival);
 					if (nodes[destination].number == 1)
 						nodes[destination].completion = t.current + getService(nodes[destination].type, destination);
 				} else {
@@ -195,7 +199,7 @@ int main()
 				break;
 			case DROP_OFF:
 			case CHECK:
-				pass_type = dequeue(&nodes[id].head, &nodes[id].tail);
+				dequeue(&nodes[id].head, &nodes[id].tail, &pass_type, &arrival);
 				
 				if (nodes[id].number > 0)
 					nodes[id].completion =
@@ -206,14 +210,14 @@ int main()
 				destination = getDestination(SECURITY);
 
 				nodes[destination].number++;
-				enqueue(&nodes[destination].head,&nodes[destination].tail, pass_type);
+				enqueue(&nodes[destination].head, &nodes[destination].tail, pass_type, arrival);
 				if (nodes[destination].number == 1)
 					nodes[destination].completion = t.current + getService(nodes[destination].type, destination);
 
 				break;
 			case SECURITY:
 				number--;
-				pass_type = dequeue(&nodes[id].head, &nodes[id].tail);
+				dequeue(&nodes[id].head, &nodes[id].tail, &pass_type, &arrival);
 				if (pass_type == FIRST_CLASS) {
 					income += FIRST_CLASS_SPENDING;
 					rikky++;

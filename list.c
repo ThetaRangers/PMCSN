@@ -10,7 +10,7 @@
 
 //TODO arrivals 
 void enqueue(struct passenger **head, struct passenger **tail,
-	     enum passenger_type type)
+	     enum passenger_type type, double arrival)
 {
 	struct passenger *node =
 		(struct passenger *)malloc(sizeof(struct passenger));
@@ -18,6 +18,7 @@ void enqueue(struct passenger **head, struct passenger **tail,
 		handle_error("malloc");
 
 	node->type = type;
+	node->arrival = arrival;
 	node->next = NULL;
 	/* Append to client list in O(1) time by keeping
 	 * reference to last node
@@ -30,7 +31,7 @@ void enqueue(struct passenger **head, struct passenger **tail,
 	*tail = node;
 }
 
-enum passenger_type dequeue(struct passenger **head, struct passenger **tail)
+void dequeue(struct passenger **head, struct passenger **tail, enum passenger_type *type, double *arrival)
 {
 	struct passenger *node = *head;
 
@@ -38,8 +39,8 @@ enum passenger_type dequeue(struct passenger **head, struct passenger **tail)
 		*tail = NULL;
 
 	*head = node->next;
-
-	enum passenger_type ret = node->type;
+	
+	*arrival = node->arrival; 
+	*type =  node->type;; 
 	free(node);
-	return ret;
 }
