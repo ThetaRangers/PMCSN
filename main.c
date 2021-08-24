@@ -4,15 +4,15 @@
 #include "list.h"
 #include "utils.h"
 
-#define SEED 69420
+#define SEED 123456789
 
 #define START 0.0 /* initial time */
 #define STOP 20000.0 /* terminal (close the door) time */
 #define INFINITY (100.0 * STOP) /* must be much larger than STOP  */
 
-#define TEMP_NODE 2
-#define CHECK_NODE 4
-#define SECURITY_NODE 3
+#define TEMP_NODE 10
+#define CHECK_NODE 30
+#define SECURITY_NODE 30
 #define DROPOFF_ONLINE 1
 
 #define FEVER_PERC 0.1
@@ -74,7 +74,7 @@ double getArrival()
 	static double arrival = START;
 
 	SelectStream(254);
-	arrival += Exponential(0.02);
+	arrival += Exponential(0.0533333);
 	return (arrival);
 }
 
@@ -83,13 +83,14 @@ double getService(enum node_type type, int id)
 	SelectStream(id);
 	switch (type) {
 	case TEMP:
-		return Exponential(0.5);
+		return Exponential(0.2);
 	case CHECK:
-		return Normal(0.2, 0.1);
+		return Exponential(5);
 	case SECURITY:
-		return (Erlang(5, 0.3));
+		return Hyperexponential(3, 0.99);
+		//return Exponential(3);
 	case DROP_OFF:
-		return Normal(1, 0.1);
+		return Normal(0.1, 0.1);
 	default:
 		return 0;
 	}
@@ -109,7 +110,7 @@ int main()
 	SelectStream(0); /* select the default stream */
 	PutSeed(SEED);
 
-	long number = 0; /* Number in the queue */
+	long number = 0; /* Number in the network */
 
 	t.current = START; /* set the clock */
 	t.arrival = getArrival(); /* schedule the first arrival */
@@ -185,6 +186,8 @@ int main()
 				else
 					nodes[id].completion = INFINITY;
 
+				printf("Temp Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
+
 				//Maybe remove???
 				destination = getDestination(CHECK);
 				if(destination != -1) {
@@ -207,6 +210,8 @@ int main()
 				else
 					nodes[id].completion = INFINITY;
 				
+				printf("Chck Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
+
 				destination = getDestination(SECURITY);
 
 				nodes[destination].number++;
@@ -225,6 +230,8 @@ int main()
 					income += SECOND_CLASS_SPENDING;
 					povery++;
 				}
+
+				printf("Secu Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
 				
 				if (nodes[id].number > 0)
 					nodes[id].completion =

@@ -34,6 +34,7 @@
  */
 
 #include <math.h>
+#include <stdio.h>
 #include "rngs.h"
 #include "rvgs.h"
 
@@ -218,4 +219,13 @@ double Student(long n)
  */
 {
 	return (Normal(0.0, 1.0) / sqrt(Chisquare(n) / n));
+}
+
+double Hyperexponential(double m, double p) 
+{
+	if(Bernoulli(p)) {
+		return Exponential(m * 1/(2 * p));	
+	} else {
+		return Exponential(m * 1/(2 * (1-p)));
+	}
 }

@@ -18,6 +18,7 @@ long Poisson(double m);
 
 double Uniform(double a, double b);
 double Exponential(double m);
+double Hyperexponential(double m, double p);
 double Erlang(long n, double b);
 double Normal(double m, double s);
 double Lognormal(double a, double b);
