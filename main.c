@@ -1,14 +1,18 @@
+#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
 #include "rngs.h"
 #include "rvgs.h"
 #include "list.h"
 #include "utils.h"
+#include "rvms.h"
 
 #define SEED 1233456
 
 #define START 0.0 /* initial time */
 #define STOP 20000.0 /* terminal (close the door) time */
-#define INFINITY (100.0 * STOP) /* must be much larger than STOP  */
+//#define INFINITY (100.0 * STOP) /* must be much larger than STOP  */
 
 #define TEMP_NODE 10
 #define CHECK_NODE 20
@@ -17,7 +21,7 @@
 
 #define TIME_IN_AIRPORT 180
 #define VARIANCE 20
-//Number of minutes in a month 43200 2000euro 0.046
+//Number of minutes in a month 2000euro/43200minutes 0.046 euro/minutes
 #define SERV_COST 0.046
 
 #define FEVER_PERC 0.1
@@ -27,9 +31,16 @@
 #define FIRST_CLASS_SPENDING 50
 #define SECOND_CLASS_SPENDING 20
 
+#define BATCH_SIZE 512
+#define ALFA 0.05
+
 enum stream { ARRIVAL, SERVICE, ROUTING };
 
+FILE *st_file; //Service time
+FILE *node_population_file; //Node population
+
 double income = 0;
+double income_24 = 0;
 int febbra = 0;
 int online = 0;
 int dropoff = 0;
@@ -101,26 +112,41 @@ double getService(enum node_type type, int id)
 	}
 }
 
-int sanPancrazio_aiutaci_tu()
+void sanPancrazio_aiutaci_tu()
 {
-	PlantSeeds(SEED);
-	SelectStream(251);
-	long blabla[SECURITY_NODE] = {0};
-	for (int i = 0; i < 10000; i++) {
-		long val = Equilikely(TEMP_NODE + CHECK_NODE, TEMP_NODE + CHECK_NODE + SECURITY_NODE - 1);
-		blabla[val - (TEMP_NODE + CHECK_NODE)]++;
-		printf("%ld\n", val);
-	}
-
-	for (int i = 0; i < SECURITY_NODE; i++) {
-		printf("index: %d, number: %ld\n", i, blabla[i]);
-	}
-	return 1;
+	printf("SAN PANCRAZIO/ROCCO AIUTACI TU\n");
 }
 
-
 int main()
-{
+{	
+	int fd1 = open("response.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	int fd2 = open("node_population.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+	if (fd1 == -1 || fd2 == -1) {
+		perror("open");
+		exit(EXIT_FAILURE);
+	}
+
+	st_file = fdopen(fd1, "w");
+	node_population_file = fdopen(fd2, "w");
+
+	double batch_position = 0;
+	double batches = 0;
+	double batch_mean = 0;
+	double batch_variance = 0;
+	double mean = 0;
+	double variance = 0;
+	double stdev;
+	int tot_completions = 0;
+
+	fprintf(st_file, "TIME, RESPONSE, POPULATION\n");
+	fprintf(node_population_file, "TIME, ID, POPULATION\n");
+
+	if (st_file == NULL || node_population_file == NULL) {
+		perror("fdopen");
+		exit(EXIT_FAILURE);
+	}
+
 	struct node nodes[nodesNumber];
 
 	struct {
@@ -130,11 +156,11 @@ int main()
 		double last; /* last arrival time */
 	} t;
 
-	struct {
-		double node; /* time integrated number in the node  */
-		double queue;  /* time integrated number in the queue */
-		double service;  /* time integrated number in service   */
-	} area = {0.0, 0.0, 0.0};
+//	struct {
+//		double node; /* time integrated number in the node  */
+//		double queue;  /* time integrated number in the queue */
+//		double service;  /* time integrated number in service */
+//	} area = {0.0, 0.0, 0.0};
 
 	SelectStream(0); /* select the default stream */
 	PlantSeeds(SEED);
@@ -172,11 +198,11 @@ int main()
 
 		t.next = min(t.arrival, minCompletion);
 
-		if (number > 0)  { /* update integrals  */
+/*		if (number > 0)  { / update integrals  /
 			area.node    += (t.next - t.current) * number;
 			area.queue   += (t.next - t.current) * (number - 1);
 			area.service += (t.next - t.current);
-		}
+		} */
 
 		t.current = t.next;
 
@@ -245,7 +271,7 @@ int main()
 				else
 					nodes[id].completion = INFINITY;
 				
-				printf("Chck Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
+				//printf("Chck Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
 				
 				destination = getDestination(SECURITY);
 				//printf("%d\n", destination);
@@ -261,22 +287,54 @@ int main()
 				dequeue(&nodes[id].head, &nodes[id].tail, &pass_type, &arrival);
 
 				double time_airport = Normal(TIME_IN_AIRPORT, VARIANCE);
+				double response_time = (t.current - arrival);
+
+				fprintf(st_file, "%lf, %lf, %ld\n", t.current, response_time, number);
+
+				//Welford
+				batch_position++;
+				double diff  = response_time - batch_mean;
+				batch_variance  += diff * diff * ((batch_position - 1.0) / batch_position);
+				batch_mean += diff / batch_position;
+				
+				if(batch_position == BATCH_SIZE + 1) {
+					batch_variance = batch_variance / BATCH_SIZE;
+					//printf("Batch Mean %d: %lf\n", batches, batch_mean);
+					//printf("Batch Variance %d: %lf\n", batches, batch_variance);
+
+					//Total Mean Welford
+					batches++;
+					diff  = batch_mean - mean;
+					variance  += diff * diff * ((batches - 1.0) / batches);
+					mean += diff / batches;
+
+					batch_position = 0;
+					batch_mean = 0;
+					batch_variance = 0;
+				}
+
 				int spending;
 				if (pass_type == FIRST_CLASS) {
-					spending = FIRST_CLASS_SPENDING;
+					spending = FIRST_CLASS_SPENDING;					
 					rikky++;
 				} else {
 					spending = SECOND_CLASS_SPENDING;
 					povery++;
 				}
 
-				double time_left = time_airport - (t.current - arrival);
+				tot_completions++;
+
+				double time_left = time_airport - response_time;
 				if(time_left > 0) {
 					income += (time_left/time_airport) * spending;
+					if(t.current > STOP - 1440 && t.current < STOP) {
+						income_24 += (time_left/time_airport) * spending;
+					}
+
 					//printf("This passenger spent %lf\n", (time_left/time_airport) * spending);
 				}
 
-				printf("Secu Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
+				//printf("Secu Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
 				
 				if (nodes[id].number > 0)
 					nodes[id].completion =
@@ -286,15 +344,36 @@ int main()
 
 				break;
 			}
-		}
 
+			fprintf(node_population_file, "%lf, %d, %d\n", t.current, id, nodes[id].number);
+		}
 	}
 	
-	income -= t.current * SERV_COST * (nodesNumber - TEMP_NODE);
+	// Last Welford iteration
+	batches++;
+	double diff  = batch_mean - mean;
+	variance  += diff * diff * (batches - 1) / batches;
+	mean += diff / batches;
+	variance = variance / batches;
+	stdev = sqrt(variance);
 
+	double t_student = idfStudent(batches - 1, 1 - ALFA/2);
+	double endpoint = t_student * stdev / sqrt(batches - 1);
+
+	income -= t.current * SERV_COST * (nodesNumber - TEMP_NODE);
+	income_24 -= 1440 * SERV_COST * (nodesNumber - TEMP_NODE);
+
+	fclose(st_file);
+	fclose(node_population_file);
+
+	sanPancrazio_aiutaci_tu();
 	printf("Ricchi: %d , Poveri: %d, Tot Arrivi: %d, Sum completion: %d\n", rikky, povery, tot_arrivals, rikky + povery);
 	printf("Febbra: %d, Online: %d, Normale: %d, Dropoff: %d\n", febbra, online, normal, dropoff);
+	printf("Total Completion: %d\n", rikky + povery);
 	printf("Income: %lf\n", income);
+	printf("Income last 24: %lf\n", income_24);
+	printf("Mean: %lf, Variance: %lf Stdev: %lf, Batches: %d\n", mean, variance, stdev, (int)batches);
+	printf("Confidence interval: (%lf, %lf)\n", mean - endpoint, mean + endpoint);
 
 	return 0;
 }
