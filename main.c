@@ -17,7 +17,7 @@
 
 #define TEMP_NODE 5
 #define CHECK_NODE 20
-#define SECURITY_NODE 15
+#define SECURITY_NODE 20
 #define DROPOFF_ONLINE 3
 
 #define TIME_IN_AIRPORT 180
