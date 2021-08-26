@@ -14,6 +14,8 @@ struct area {
 struct node {
 	struct passenger *head;
 	struct passenger *tail;
+	struct passenger *head_second;
+	struct passenger *tail_second;
 	struct area area;
 	int number;
 	double completion;
