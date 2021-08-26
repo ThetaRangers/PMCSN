@@ -5,9 +5,16 @@
 
 enum node_type { TEMP, CHECK, SECURITY, DROP_OFF };
 
+struct area {
+		double node; /* time integrated number in the node  */
+		double queue;  /* time integrated number in the queue */
+		double service;  /* time integrated number in service */
+};
+
 struct node {
 	struct passenger *head;
 	struct passenger *tail;
+	struct area area;
 	int number;
 	double completion;
 	int id; //Server id

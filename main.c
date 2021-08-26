@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <fcntl.h>
 #include "rngs.h"
 #include "rvgs.h"
@@ -156,12 +157,6 @@ int main()
 		double last; /* last arrival time */
 	} t;
 
-//	struct {
-//		double node; /* time integrated number in the node  */
-//		double queue;  /* time integrated number in the queue */
-//		double service;  /* time integrated number in service */
-//	} area = {0.0, 0.0, 0.0};
-
 	SelectStream(0); /* select the default stream */
 	PlantSeeds(SEED);
 
@@ -178,6 +173,10 @@ int main()
 		nodes[i].id = i;
 		nodes[i].number = 0;
 
+		nodes[i].area.node = 0;
+		nodes[i].area.queue = 0;
+		nodes[i].area.service = 0;
+
 		if (i < TEMP_NODE)
 			nodes[i].type = TEMP;
 		else if (i < TEMP_NODE + CHECK_NODE)
@@ -193,16 +192,18 @@ int main()
 	int tot_arrivals = 0;
 
 	int id;
+	int last_id = 0;
+	
 	while ((t.arrival < STOP) || number > 0) {
 		double minCompletion = minNode(nodes, nodesNumber, &id);
 
 		t.next = min(t.arrival, minCompletion);
 
-/*		if (number > 0)  { / update integrals  /
-			area.node    += (t.next - t.current) * number;
-			area.queue   += (t.next - t.current) * (number - 1);
-			area.service += (t.next - t.current);
-		} */
+		if (nodes[last_id].number > 0)  { // update integrals
+			nodes[last_id].area.node += (t.next - t.current) * nodes[last_id].number;
+			nodes[last_id].area.queue += (t.next - t.current) * (nodes[last_id].number - 1);
+			nodes[last_id].area.service += (t.next - t.current);
+		}
 
 		t.current = t.next;
 
@@ -216,8 +217,8 @@ int main()
 				&nodes[destination].tail, getPassenger(), t.arrival);
 			t.arrival = getArrival();
 
-			
 			nodes[destination].number++;
+			last_id = destination;
 
 			if (t.arrival > STOP) {
 				t.last = t.current;
@@ -345,6 +346,8 @@ int main()
 				break;
 			}
 
+			last_id = destination;
+
 			fprintf(node_population_file, "%lf, %d, %d\n", t.current, id, nodes[id].number);
 		}
 	}
@@ -367,13 +370,42 @@ int main()
 	fclose(node_population_file);
 
 	sanPancrazio_aiutaci_tu();
-	printf("Ricchi: %d , Poveri: %d, Tot Arrivi: %d, Sum completion: %d\n", rikky, povery, tot_arrivals, rikky + povery);
-	printf("Febbra: %d, Online: %d, Normale: %d, Dropoff: %d\n", febbra, online, normal, dropoff);
-	printf("Total Completion: %d\n", rikky + povery);
-	printf("Income: %lf\n", income);
-	printf("Income last 24: %lf\n", income_24);
-	printf("Mean: %lf, Variance: %lf Stdev: %lf, Batches: %d\n", mean, variance, stdev, (int)batches);
-	printf("Confidence interval: (%lf, %lf)\n", mean - endpoint, mean + endpoint);
+	printf("PASSENGERS\n");
+	printf("Arrivals............... %d\n", tot_arrivals);
+	printf("Completions............ %d\n", tot_completions);
+	printf("First Class............ %d\n", rikky);
+	printf("Second Class........... %d\n", povery);
+	printf("Fever.................. %d\n", febbra);
+	printf("Online................. %d\n", online);
+	printf("Dropoff................ %d\n", dropoff);
+
+	printf("\nINCOME:\n");
+	printf("Income for %.1f hours. %lf\n", STOP/60.0, income);
+	printf("Income 24 hours........ %lf\n", income_24);
+
+	printf("\nRESPONSE TIME:\n");
+	printf("Batch size............. %d\n", BATCH_SIZE);
+	printf("Number of batches...... %d\n", (int)batches);
+	printf("Mean................... %lf\n", mean);
+	printf("Variance............... %lf\n", variance);
+	printf("Stdev.................. %lf\n", stdev);
+	printf("Confidence Interval: (%lf, %lf)\n", mean - endpoint, mean + endpoint);
+
+	printf("\nUTILIZATION:\n");
+	for(int i = 0; i < nodesNumber; i++) {
+		char type_string[20];
+
+		if(nodes[i].type == TEMP) {
+			strcpy(type_string, "Temperature");
+		} else if(nodes[i].type == CHECK) {
+			strcpy(type_string, "Checkin");
+		} else if(nodes[i].type == SECURITY) {
+			strcpy(type_string, "Security");
+		} else if(nodes[i].type == DROP_OFF) {
+			strcpy(type_string, "Dropoff");
+		}
+		printf("Utilization %d %s......%lf\n", i, type_string, nodes[i].area.node/t.current);
+	}
 
 	return 0;
 }
