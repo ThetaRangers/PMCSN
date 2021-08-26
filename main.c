@@ -9,16 +9,16 @@
 #include "utils.h"
 #include "rvms.h"
 
-#define SEED 1233456
+#define SEED 9876543
 
 #define START 0.0 /* initial time */
 #define STOP 20000.0 /* terminal (close the door) time */
 //#define INFINITY (100.0 * STOP) /* must be much larger than STOP  */
 
-#define TEMP_NODE 10
+#define TEMP_NODE 5
 #define CHECK_NODE 20
 #define SECURITY_NODE 15
-#define DROPOFF_ONLINE 1
+#define DROPOFF_ONLINE 3
 
 #define TIME_IN_AIRPORT 180
 #define VARIANCE 20
@@ -28,6 +28,7 @@
 #define FEVER_PERC 0.1
 #define ONLINE_PERC 0.6
 #define CHECK_PERC 0.4
+#define DROPOFF_PERC 0.4
 
 #define FIRST_CLASS_SPENDING 50
 #define SECOND_CLASS_SPENDING 20
@@ -35,7 +36,11 @@
 #define BATCH_SIZE 512
 #define ALFA 0.05
 
-enum stream { ARRIVAL, SERVICE, ROUTING };
+#define ARRIVAL_MEAN 0.2
+#define TEMP_MEAN 0.2
+#define CHECK_MEAN 5
+#define SECURITY_MEAN 3
+#define DROPOFF_MEAN 1
 
 FILE *st_file; //Service time
 FILE *node_population_file; //Node population
@@ -60,12 +65,19 @@ int getDestination(enum node_type type)
 		SelectStream(252);
 		rand = Random();
 		if (rand < CHECK_PERC * (1 - FEVER_PERC)) {
-			rand = rand/CHECK_PERC;
+			//rand = rand/CHECK_PERC;
 			normal++;
+			SelectStream(250);
+			return Equilikely(TEMP_NODE, TEMP_NODE + CHECK_NODE - 1);
 		} else if (rand < (CHECK_PERC + ONLINE_PERC) * (1 - FEVER_PERC)) {
-			if(rand > 0.8) {
+			SelectStream(249);
+			rand = Random();
+
+			if(rand < 0.4) {
 				dropoff++;
-				return TEMP_NODE + CHECK_NODE + SECURITY_NODE;
+				SelectStream(248);
+				return Equilikely(TEMP_NODE + CHECK_NODE + SECURITY_NODE, TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROPOFF_ONLINE - 1);
+				//return TEMP_NODE + CHECK_NODE + SECURITY_NODE;
 			} else {
 				online++;
 				return getDestination(SECURITY);
@@ -75,9 +87,9 @@ int getDestination(enum node_type type)
 			return -1;
 		}
 
-		int destination = (TEMP_NODE + ((long)CHECK_NODE * rand));
+		//int destination = (TEMP_NODE + ((long)CHECK_NODE * rand));
 
-		return destination;
+		//return destination;
 	case SECURITY:
 		SelectStream(251);
 		return Equilikely(TEMP_NODE + CHECK_NODE, TEMP_NODE + CHECK_NODE + SECURITY_NODE - 1);
@@ -91,7 +103,7 @@ double getArrival()
 	static double arrival = START;
 
 	SelectStream(254);
-	arrival += Exponential(0.2);
+	arrival += Exponential(ARRIVAL_MEAN);
 	return (arrival);
 }
 
@@ -100,22 +112,17 @@ double getService(enum node_type type, int id)
 	SelectStream(id);
 	switch (type) {
 	case TEMP:
-		return Exponential(0.2);
+		return Exponential(TEMP_MEAN);
 	case CHECK:
-		return Exponential(5);
+		return Exponential(CHECK_MEAN);
 	case SECURITY:
 		//return Hyperexponential(3, 0.99);
-		return Exponential(3);
+		return Exponential(SECURITY_MEAN);
 	case DROP_OFF:
-		return Exponential(0.5);
+		return Exponential(DROPOFF_MEAN);
 	default:
 		return 0;
 	}
-}
-
-void sanPancrazio_aiutaci_tu()
-{
-	printf("SAN PANCRAZIO/ROCCO AIUTACI TU\n");
 }
 
 int main()
@@ -187,22 +194,22 @@ int main()
 			nodes[i].type = DROP_OFF;
 	}
 
-	int rikky = 0;
-	int povery = 0;
+	int first_class_number = 0;
+	int second_class_number = 0;
 	int tot_arrivals = 0;
 
 	int id;
-	int last_id = 0;
-	
 	while ((t.arrival < STOP) || number > 0) {
 		double minCompletion = minNode(nodes, nodesNumber, &id);
 
 		t.next = min(t.arrival, minCompletion);
 
-		if (nodes[last_id].number > 0)  { // update integrals
-			nodes[last_id].area.node += (t.next - t.current) * nodes[last_id].number;
-			nodes[last_id].area.queue += (t.next - t.current) * (nodes[last_id].number - 1);
-			nodes[last_id].area.service += (t.next - t.current);
+		for(int i = 0; i < nodesNumber; i++) {
+			if (nodes[i].number > 0)  { // update integrals
+				nodes[i].area.node += (t.next - t.current) * nodes[i].number;
+				nodes[i].area.queue += (t.next - t.current) * (nodes[i].number - 1);
+				nodes[i].area.service += (t.next - t.current);
+			}
 		}
 
 		t.current = t.next;
@@ -218,7 +225,6 @@ int main()
 			t.arrival = getArrival();
 
 			nodes[destination].number++;
-			last_id = destination;
 
 			if (t.arrival > STOP) {
 				t.last = t.current;
@@ -233,7 +239,7 @@ int main()
 		} else {
 			//Servizietto
 			double arrival;
-			int destination;
+			int destination = 0;
 			enum passenger_type pass_type;
 			enum node_type completion_type =  nodes[id].type;
 			nodes[id].number--;
@@ -317,10 +323,10 @@ int main()
 				int spending;
 				if (pass_type == FIRST_CLASS) {
 					spending = FIRST_CLASS_SPENDING;					
-					rikky++;
+					first_class_number++;
 				} else {
 					spending = SECOND_CLASS_SPENDING;
-					povery++;
+					second_class_number++;
 				}
 
 				tot_completions++;
@@ -346,8 +352,6 @@ int main()
 				break;
 			}
 
-			last_id = destination;
-
 			fprintf(node_population_file, "%lf, %d, %d\n", t.current, id, nodes[id].number);
 		}
 	}
@@ -363,18 +367,17 @@ int main()
 	double t_student = idfStudent(batches - 1, 1 - ALFA/2);
 	double endpoint = t_student * stdev / sqrt(batches - 1);
 
-	income -= t.current * SERV_COST * (nodesNumber - TEMP_NODE);
-	income_24 -= 1440 * SERV_COST * (nodesNumber - TEMP_NODE);
+	income -= t.current * SERV_COST * (nodesNumber);
+	income_24 -= 1440 * SERV_COST * (nodesNumber);
 
 	fclose(st_file);
 	fclose(node_population_file);
 
-	sanPancrazio_aiutaci_tu();
 	printf("PASSENGERS\n");
 	printf("Arrivals............... %d\n", tot_arrivals);
 	printf("Completions............ %d\n", tot_completions);
-	printf("First Class............ %d\n", rikky);
-	printf("Second Class........... %d\n", povery);
+	printf("First Class............ %d\n", first_class_number);
+	printf("Second Class........... %d\n", second_class_number);
 	printf("Fever.................. %d\n", febbra);
 	printf("Online................. %d\n", online);
 	printf("Dropoff................ %d\n", dropoff);
@@ -404,7 +407,7 @@ int main()
 		} else if(nodes[i].type == DROP_OFF) {
 			strcpy(type_string, "Dropoff");
 		}
-		printf("Utilization %d %s......%lf\n", i, type_string, nodes[i].area.node/t.current);
+		printf("\t%s-%d......%lf\n", type_string, i, nodes[i].area.service/t.current);
 	}
 
 	return 0;
