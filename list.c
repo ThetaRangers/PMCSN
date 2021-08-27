@@ -8,7 +8,6 @@
 		exit(EXIT_FAILURE);                                            \
 	} while (0)
 
-//TODO arrivals 
 void enqueue(struct passenger **head, struct passenger **tail,
 	     enum passenger_type type, double arrival)
 {
@@ -43,4 +42,15 @@ void dequeue(struct passenger **head, struct passenger **tail, enum passenger_ty
 	*arrival = node->arrival; 
 	*type =  node->type;; 
 	free(node);
+}
+
+
+void remove_all(struct passenger **head)
+{	
+	struct passenger *node = *head;
+	while (node != NULL) {
+		struct passenger *tmp = node;
+		node = node->next;
+		free(tmp);
+	}
 }
