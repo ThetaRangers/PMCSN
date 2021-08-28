@@ -42,12 +42,14 @@
 #define SECURITY_MEAN 3
 #define DROPOFF_MEAN 1
 
-#define REPETITIONS 10
+#define REPETITIONS 1000
 #define STOP_FINITE 1440
 #define SAMPLE_INTERVAL 10
 
 FILE *st_file; //Service time
 FILE *node_population_file; //Node population
+
+double arrival = START;
 
 double income = 0;
 double income_24 = 0;
@@ -104,8 +106,6 @@ int getDestination(enum node_type type)
 
 double getArrival()
 {
-	static double arrival = START;
-
 	SelectStream(254);
 	arrival += Exponential(ARRIVAL_MEAN);
 	return (arrival);
@@ -532,8 +532,7 @@ int simulate(int mode) {
 
 }
 
-//, double *array, int len
-void finite_horizon(int mode) {
+void finite_horizon(int mode, int rows, int columns, double statistics[rows][columns]) {
 	struct node nodes[nodesNumber];
 
 	struct {
@@ -545,6 +544,7 @@ void finite_horizon(int mode) {
 
 	long number = 0; /* Number in the network */
 
+	arrival = 0;
 	t.current = START; /* set the clock */
 	t.arrival = getArrival(); /* schedule the first arrival */
 
@@ -575,9 +575,11 @@ void finite_horizon(int mode) {
 	int id;
 	
 	double index = 0;
+
 	for(; index <= t.arrival; index += SAMPLE_INTERVAL) {
-			printf("Sample %.0f\n", index);
-			//All 0
+		for(int j = 0; j < columns; j++) {
+			statistics[(int)(index / SAMPLE_INTERVAL)][columns] = 0;
+		}
 	}
 
 	while ((t.arrival < STOP_FINITE)) {
@@ -594,10 +596,58 @@ void finite_horizon(int mode) {
 		}
 
 		//Measure
+		double utilization_temp = 0;
+		double utilization_check = 0;
+		double utilization_dropoff = 0;
+		double utilization_security = 0;
+
+		double pop_temp = 0;
+		double pop_check = 0;
+		double pop_dropoff = 0;
+		double pop_security = 0;
+
+		for(int i = 0; i < TEMP_NODE; i++) {
+			utilization_temp += nodes[i].area.service / t.current;
+			pop_temp += nodes[i].area.node / t.current;
+		}
+		utilization_temp = utilization_temp / TEMP_NODE;
+		pop_temp = pop_temp / TEMP_NODE;
+
+		for(int i = TEMP_NODE; i < TEMP_NODE + CHECK_NODE; i++) {
+			utilization_check += nodes[i].area.service / t.current;
+			pop_check += nodes[i].area.node / t.current;
+		}
+		utilization_check = utilization_check / CHECK_NODE;
+		pop_check = pop_check / CHECK_NODE;
+
+		for(int i = TEMP_NODE + CHECK_NODE; i < TEMP_NODE + CHECK_NODE + SECURITY_NODE; i++) {
+			utilization_security += nodes[i].area.service / t.current;
+			pop_security += nodes[i].area.node / t.current;
+		}
+		utilization_security = utilization_security / SECURITY_NODE;
+		pop_security = pop_security / SECURITY_NODE;
+
+		for(int i = TEMP_NODE + CHECK_NODE + SECURITY_NODE; i < TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROP_OFF; i++) {
+			utilization_dropoff += nodes[i].area.service / t.current;
+			pop_dropoff += nodes[i].area.node / t.current;
+		}
+		utilization_dropoff = utilization_dropoff / DROP_OFF;
+		pop_dropoff = pop_dropoff / DROP_OFF;
 
 		//Update
 		for(; index <= t.next; index += SAMPLE_INTERVAL) {
-			printf("Sample %.0f\n", index);
+			statistics[(int)index/SAMPLE_INTERVAL][0] = utilization_temp;
+			statistics[(int)index/SAMPLE_INTERVAL][1] = pop_temp;
+
+			statistics[(int)index/SAMPLE_INTERVAL][2] = utilization_check;
+			statistics[(int)index/SAMPLE_INTERVAL][3] = pop_check;
+
+			statistics[(int)index/SAMPLE_INTERVAL][4] = utilization_security;
+			statistics[(int)index/SAMPLE_INTERVAL][5] = pop_security;
+
+			statistics[(int)index/SAMPLE_INTERVAL][6] = utilization_dropoff;
+			statistics[(int)index/SAMPLE_INTERVAL][7] = pop_dropoff;
+			//printf("Sample %d-%lf-%lf\n", (int)index/SAMPLE_INTERVAL, statistics[(int)index/SAMPLE_INTERVAL][0], statistics[(int)index/SAMPLE_INTERVAL][1]);
 		}
 
 		t.current = t.next;
@@ -640,8 +690,6 @@ void finite_horizon(int mode) {
 				else
 					nodes[id].completion = INFINITY;
 
-				//printf("Temp Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
-
 				destination = getDestination(CHECK);
 				if(destination != -1) {
 					nodes[destination].number++;
@@ -651,7 +699,6 @@ void finite_horizon(int mode) {
 					} else {
 						enqueue(&nodes[destination].head_second, &nodes[destination].tail_second, pass_type, arrival);
 					}
-					//enqueue(&nodes[destination].head,&nodes[destination].tail, pass_type, arrival);
 					if (nodes[destination].number == 1)
 						nodes[destination].completion = t.current + getService(nodes[destination].type, destination);
 				} else {
@@ -661,7 +708,6 @@ void finite_horizon(int mode) {
 				break;
 			case DROP_OFF:
 			case CHECK:
-				//dequeue(&nodes[id].head, &nodes[id].tail, &pass_type, &arrival);
 				if(mode == 0 || nodes[id].head != NULL) {
 					dequeue(&nodes[id].head, &nodes[id].tail, &pass_type, &arrival);
 				} else {
@@ -674,10 +720,7 @@ void finite_horizon(int mode) {
 				else
 					nodes[id].completion = INFINITY;
 				
-				//printf("Chck Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
-				
 				destination = getDestination(SECURITY);
-				//printf("%d\n", destination);
 
 				nodes[destination].number++;
 				if(mode == 0 || pass_type == FIRST_CLASS) {
@@ -698,11 +741,6 @@ void finite_horizon(int mode) {
 				} else {
 					dequeue(&nodes[id].head_second, &nodes[id].tail_second, &pass_type, &arrival);
 				}
-
-				
-				double response_time = (t.current - arrival);
-
-				//printf("Secu Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
 				
 				if (nodes[id].number > 0)
 					nodes[id].completion =
@@ -714,27 +752,137 @@ void finite_horizon(int mode) {
 			}
 		}
 	}
+
+
+	double utilization_temp = 0;
+	double utilization_check = 0;
+	double utilization_dropoff = 0;
+	double utilization_security = 0;
+
+	double pop_temp = 0;
+	double pop_check = 0;
+	double pop_dropoff = 0;
+	double pop_security = 0;
+
+	t.next = STOP_FINITE;
+
+	for(int i = 0; i < TEMP_NODE; i++) {
+			utilization_temp += nodes[i].area.service / t.current;
+			pop_temp += nodes[i].area.node / t.current;
+	}
+	utilization_temp = utilization_temp / TEMP_NODE;
+	pop_temp = pop_temp / TEMP_NODE;
+	
+	for(int i = TEMP_NODE; i < TEMP_NODE + CHECK_NODE; i++) {
+			utilization_check += nodes[i].area.service / t.current;
+			pop_check += nodes[i].area.node / t.current;
+		}
+		utilization_check = utilization_check / CHECK_NODE;
+		pop_check = pop_check / CHECK_NODE;
+
+		for(int i = TEMP_NODE + CHECK_NODE; i < TEMP_NODE + CHECK_NODE + SECURITY_NODE; i++) {
+			utilization_security += nodes[i].area.service / t.current;
+			pop_security += nodes[i].area.node / t.current;
+		}
+		utilization_security = utilization_security / SECURITY_NODE;
+		pop_security = pop_security / SECURITY_NODE;
+
+		for(int i = TEMP_NODE + CHECK_NODE + SECURITY_NODE; i < TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROP_OFF; i++) {
+			utilization_dropoff += nodes[i].area.service / t.current;
+			pop_dropoff += nodes[i].area.node / t.current;
+		}
+		utilization_dropoff = utilization_dropoff / DROP_OFF;
+		pop_dropoff = pop_dropoff / DROP_OFF;
+
+		//Update
+		for(; index <= t.next; index += SAMPLE_INTERVAL) {
+			statistics[(int)index/SAMPLE_INTERVAL][0] = utilization_temp;
+			statistics[(int)index/SAMPLE_INTERVAL][1] = pop_temp;
+
+			statistics[(int)index/SAMPLE_INTERVAL][2] = utilization_check;
+			statistics[(int)index/SAMPLE_INTERVAL][3] = pop_check;
+
+			statistics[(int)index/SAMPLE_INTERVAL][4] = utilization_security;
+			statistics[(int)index/SAMPLE_INTERVAL][5] = pop_security;
+
+			statistics[(int)index/SAMPLE_INTERVAL][6] = utilization_dropoff;
+			statistics[(int)index/SAMPLE_INTERVAL][7] = pop_dropoff;
+		}
+
+	for(int i = 0; i < nodesNumber; i++) {
+		remove_all(&nodes[i].head);
+		remove_all(&nodes[i].head_second);
+	}
+}
+
+int repeat_finite_horizon(int mode) {
+	int columns = 16;
+
+	double results[STOP_FINITE/SAMPLE_INTERVAL + 1][columns];
+	double statistics[STOP_FINITE/SAMPLE_INTERVAL + 1][8];
+
+	for(int row = 0; row < STOP_FINITE/SAMPLE_INTERVAL + 1; row++) {
+		for(int column = 0; column < 16; column++) {
+			results[row][column] = 0;
+		}
+	}
+
+	for(int i = 1; i < REPETITIONS + 1; i++) {
+		//printf("Repetition: %d\n", i);
+		finite_horizon(mode, STOP_FINITE/SAMPLE_INTERVAL + 1, 8, statistics);
+
+		for(int j = 1; j < STOP_FINITE/SAMPLE_INTERVAL + 1; j++) {
+			for(int columns = 0; columns < 8; columns++) {
+				double diff = statistics[j][columns] - results[j][columns];
+				results[j][8 + columns] += diff * diff * ((i - 1.0) / i);
+				results[j][columns] += diff / i;
+			}
+		}
+	}
+
+	for(int j = 1; j < STOP_FINITE/SAMPLE_INTERVAL + 1; j++) {
+			for(int columns = 8; columns < 16; columns++) {
+				double variance = results[j][columns] / REPETITIONS;
+				double stdev = sqrt(variance);
+
+				double t_student = idfStudent(REPETITIONS - 1, 1 - ALFA/2);
+				results[j][columns] = t_student * stdev / sqrt(REPETITIONS - 1);
+			}
+	}
+
+	for(int j = 1; j < STOP_FINITE/SAMPLE_INTERVAL + 1; j++) {
+		/*printf("%d###%lf-%lf#%lf-%lf#%lf-%lf#%lf-%lf\n", j, 
+		results[j][0], results[j][1], 
+		results[j][2], results[j][3], 
+		results[j][4], results[j][5],
+		results[j][6], results[j][7]);*/
+
+		printf("%d###(%lf, %lf)\n", j, results[j][1] - results[j][8 + 1], results[j][1] + results[j][8 + 1]);
+	}
+
+	return 0;
 }
 
 int main(int argc, char **argv)
 {
-	//int mode;
+	int mode;
 
-	if(argc != 2) {
-		printf("Usage: simulation <mode> (0 original, 1 improved)\n");
+	if(argc != 3) {
+		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite> (f finite, i infinite)\n");
 		return 1;
 	}
 
 	PlantSeeds(SEED);
-	/*
-	finite_horizon(0);
-*/
 
-	if(!strcmp(argv[1], "0")) {
-		//mode = 0;
-		return simulate(0);
+	if(!strcmp(argv[1], "o")) {
+		mode = 0;
 	} else {
-		//mode = 1;
-		return simulate(1);
+		mode = 1;
+	}
+
+	if(!strcmp(argv[2], "f")) {
+		return repeat_finite_horizon(mode);
+	} else {
+		return simulate(mode);
 	}
 }
