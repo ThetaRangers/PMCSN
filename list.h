@@ -12,7 +12,7 @@ struct passenger {
 void enqueue(struct passenger **head, struct passenger **tail,
 	     enum passenger_type type, double arrival);
 void dequeue(struct passenger **head, struct passenger **tail,
-		 enum passenger_type *type, double *arrival);
+	     enum passenger_type *type, double *arrival);
 void remove_all(struct passenger **head);
 
 #endif

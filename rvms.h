@@ -6,7 +6,7 @@
  * -------------------------------------------------------------- 
  */
 
-#if !defined( _RVMS_ )
+#if !defined(_RVMS_)
 #define _RVMS_
 
 double LogFactorial(long n);
@@ -14,27 +14,27 @@ double LogChoose(long n, long m);
 
 double pdfBernoulli(double p, long x);
 double cdfBernoulli(double p, long x);
-long   idfBernoulli(double p, double u);
+long idfBernoulli(double p, double u);
 
 double pdfEquilikely(long a, long b);
 double cdfEquilikely(long a, long b, long x);
-long   idfEquilikely(long a, long b, double u);
+long idfEquilikely(long a, long b, double u);
 
 double pdfBinomial(long n, double p, long x);
 double cdfBinomial(long n, double p, long x);
-long   idfBinomial(long n, double p, double u);
+long idfBinomial(long n, double p, double u);
 
 double pdfGeometric(double p, long x);
 double cdfGeometric(double p, long x);
-long   idfGeometric(double p, double u);
+long idfGeometric(double p, double u);
 
 double pdfPascal(long n, double p, long x);
 double cdfPascal(long n, double p, long x);
-long   idfPascal(long n, double p, double u);
+long idfPascal(long n, double p, double u);
 
 double pdfPoisson(double m, long x);
 double cdfPoisson(double m, long x);
-long   idfPoisson(double m, double u);
+long idfPoisson(double m, double u);
 
 double pdfUniform(double a, double b);
 double cdfUniform(double a, double b, double x);

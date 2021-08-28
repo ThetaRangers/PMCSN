@@ -30,7 +30,8 @@ void enqueue(struct passenger **head, struct passenger **tail,
 	*tail = node;
 }
 
-void dequeue(struct passenger **head, struct passenger **tail, enum passenger_type *type, double *arrival)
+void dequeue(struct passenger **head, struct passenger **tail,
+	     enum passenger_type *type, double *arrival)
 {
 	struct passenger *node = *head;
 
@@ -38,15 +39,15 @@ void dequeue(struct passenger **head, struct passenger **tail, enum passenger_ty
 		*tail = NULL;
 
 	*head = node->next;
-	
-	*arrival = node->arrival; 
-	*type =  node->type;; 
+
+	*arrival = node->arrival;
+	*type = node->type;
+	;
 	free(node);
 }
 
-
 void remove_all(struct passenger **head)
-{	
+{
 	struct passenger *node = *head;
 	while (node != NULL) {
 		struct passenger *tmp = node;

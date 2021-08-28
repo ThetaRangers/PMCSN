@@ -220,4 +220,3 @@ double Student(long n)
 {
 	return (Normal(0.0, 1.0) / sqrt(Chisquare(n) / n));
 }
-
