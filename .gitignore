@@ -3,3 +3,5 @@ response.csv
 node_population.csv
 response_improved.csv
 node_population_improved.csv
+finite_horizon.csv
+finite_horizon_improved.csv

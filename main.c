@@ -22,6 +22,7 @@
 
 #define TIME_IN_AIRPORT 180
 #define VARIANCE 20
+
 //Number of minutes in a month 2000euro/43200minutes 0.046 euro/minutes
 #define SERV_COST 0.046
 
@@ -71,7 +72,6 @@ int getDestination(enum node_type type)
 		SelectStream(252);
 		rand = Random();
 		if (rand < CHECK_PERC * (1 - FEVER_PERC)) {
-			//rand = rand/CHECK_PERC;
 			normal++;
 			SelectStream(250);
 			return Equilikely(TEMP_NODE, TEMP_NODE + CHECK_NODE - 1);
@@ -83,7 +83,6 @@ int getDestination(enum node_type type)
 				dropoff++;
 				SelectStream(248);
 				return Equilikely(TEMP_NODE + CHECK_NODE + SECURITY_NODE, TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROPOFF_ONLINE - 1);
-				//return TEMP_NODE + CHECK_NODE + SECURITY_NODE;
 			} else {
 				online++;
 				return getDestination(SECURITY);
@@ -92,10 +91,6 @@ int getDestination(enum node_type type)
 			febbra++;
 			return -1;
 		}
-
-		//int destination = (TEMP_NODE + ((long)CHECK_NODE * rand));
-
-		//return destination;
 	case SECURITY:
 		SelectStream(251);
 		return Equilikely(TEMP_NODE + CHECK_NODE, TEMP_NODE + CHECK_NODE + SECURITY_NODE - 1);
@@ -120,7 +115,6 @@ double getService(enum node_type type, int id)
 	case CHECK:
 		return Exponential(CHECK_MEAN);
 	case SECURITY:
-		//return Hyperexponential(3, 0.99);
 		return Exponential(SECURITY_MEAN);
 	case DROP_OFF:
 		return Exponential(DROPOFF_MEAN);
@@ -279,8 +273,6 @@ int simulate(int mode) {
 				else
 					nodes[id].completion = INFINITY;
 
-				//printf("Temp Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
-
 				destination = getDestination(CHECK);
 				if(destination != -1) {
 					nodes[destination].number++;
@@ -290,7 +282,7 @@ int simulate(int mode) {
 					} else {
 						enqueue(&nodes[destination].head_second, &nodes[destination].tail_second, pass_type, arrival);
 					}
-					//enqueue(&nodes[destination].head,&nodes[destination].tail, pass_type, arrival);
+
 					if (nodes[destination].number == 1)
 						nodes[destination].completion = t.current + getService(nodes[destination].type, destination);
 				} else {
@@ -300,7 +292,7 @@ int simulate(int mode) {
 				break;
 			case DROP_OFF:
 			case CHECK:
-				//dequeue(&nodes[id].head, &nodes[id].tail, &pass_type, &arrival);
+				
 				if(mode == 0 || nodes[id].head != NULL) {
 					dequeue(&nodes[id].head, &nodes[id].tail, &pass_type, &arrival);
 				} else {
@@ -313,10 +305,8 @@ int simulate(int mode) {
 				else
 					nodes[id].completion = INFINITY;
 				
-				//printf("Chck Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
 				
 				destination = getDestination(SECURITY);
-				//printf("%d\n", destination);
 
 				nodes[destination].number++;
 				if(mode == 0 || pass_type == FIRST_CLASS) {
@@ -346,7 +336,6 @@ int simulate(int mode) {
 				//Welford
 				batch_position++;
 				double diff  = response_time - batch_mean;
-				//batch_variance  += diff * diff * ((batch_position - 1.0) / batch_position);
 				batch_mean += diff / batch_position;
 
 				//Wellford for second class
@@ -389,8 +378,6 @@ int simulate(int mode) {
 
 				
 				if(batch_position == BATCH_SIZE + 1) {
-					//batch_variance = batch_variance / BATCH_SIZE;
-
 					//Total Mean Welford
 					batches++;
 					diff = batch_mean - mean;
@@ -399,7 +386,6 @@ int simulate(int mode) {
 
 					batch_position = 0;
 					batch_mean = 0;
-					//batch_variance = 0;
 				}
 
 				tot_completions++;
@@ -410,12 +396,7 @@ int simulate(int mode) {
 					if(t.current > STOP - 1440 && t.current < STOP) {
 						income_24 += (time_left/time_airport) * spending;
 					}
-
-					//printf("This passenger spent %lf\n", (time_left/time_airport) * spending);
-				}
-
-				//printf("Secu Service time: %lf In Queue %d: %d\n", t.current - arrival, id, nodes[id].number);
-				
+				}				
 				if (nodes[id].number > 0)
 					nodes[id].completion =
 						t.current + getService(nodes[id].type, id);
@@ -647,7 +628,6 @@ void finite_horizon(int mode, int rows, int columns, double statistics[rows][col
 
 			statistics[(int)index/SAMPLE_INTERVAL][6] = utilization_dropoff;
 			statistics[(int)index/SAMPLE_INTERVAL][7] = pop_dropoff;
-			//printf("Sample %d-%lf-%lf\n", (int)index/SAMPLE_INTERVAL, statistics[(int)index/SAMPLE_INTERVAL][0], statistics[(int)index/SAMPLE_INTERVAL][1]);
 		}
 
 		t.current = t.next;
@@ -828,7 +808,6 @@ int repeat_finite_horizon(int mode) {
 	}
 
 	for(int i = 1; i < REPETITIONS + 1; i++) {
-		//printf("Repetition: %d\n", i);
 		finite_horizon(mode, STOP_FINITE/SAMPLE_INTERVAL + 1, 8, statistics);
 
 		for(int j = 1; j < STOP_FINITE/SAMPLE_INTERVAL + 1; j++) {
@@ -850,15 +829,35 @@ int repeat_finite_horizon(int mode) {
 			}
 	}
 
-	for(int j = 1; j < STOP_FINITE/SAMPLE_INTERVAL + 1; j++) {
-		/*printf("%d###%lf-%lf#%lf-%lf#%lf-%lf#%lf-%lf\n", j, 
+	int fd;
+
+	if(mode == 0) {
+		fd = open("finite_horizon.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	} else {
+		fd = open("finite_horizon_improved.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	}
+
+	if (fd == -1) {
+		perror("open");
+		exit(EXIT_FAILURE);
+	}
+
+	FILE *file = fdopen(fd, "w");
+
+	fprintf(file, "sample,utilization_temp_mean,population_temp_mean,utilization_check_mean,population_check_mean,utilization_security_mean,population_security_mean,utilization_dropoff_mean,population_dropoff_mean,utilization_temp_endpoint,population_temp_endpoint,utilization_check_endpoint,population_check_endpoint,utilization_security_endpoint,population_security_endpoint,utilization_dropoff_endpoint,population_dropoff_endpoint\n");
+
+	for (int j = 1; j < STOP_FINITE/SAMPLE_INTERVAL + 1; j++) {
+		fprintf(file, "%d,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf\n", j,
 		results[j][0], results[j][1], 
 		results[j][2], results[j][3], 
 		results[j][4], results[j][5],
-		results[j][6], results[j][7]);*/
-
-		printf("%d###(%lf, %lf)\n", j, results[j][1] - results[j][8 + 1], results[j][1] + results[j][8 + 1]);
+		results[j][6], results[j][7],results[j][8], results[j][9], 
+		results[j][10], results[j][11], 
+		results[j][12], results[j][13],
+		results[j][14], results[j][15]);
 	}
+
+	fflush(file);
 
 	return 0;
 }
