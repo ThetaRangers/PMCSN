@@ -9,7 +9,9 @@
 #include "utils.h"
 #include "rvms.h"
 
-#define SEED 9876543
+//904914315
+//1434868289
+#define SEED 123456789
 
 #define START 0.0 /* initial time */
 #define STOP 20000.0 /* terminal (close the door) time */
