@@ -1016,7 +1016,7 @@ int repeat_finite_horizon(int mode)
 			results[j][15]);
 	}
 
-	fflush(file);
+	fclose(file);
 
 	return 0;
 }
