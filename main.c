@@ -46,8 +46,8 @@
 #define DROPOFF_MEAN 1
 
 #define REPETITIONS 1000
-#define STOP_FINITE 1440
-#define SAMPLE_INTERVAL 10
+#define STOP_FINITE 360
+#define SAMPLE_INTERVAL 1
 
 FILE *st_file; //Service time
 FILE *node_population_file; //Node population
@@ -1008,12 +1008,12 @@ int repeat_finite_horizon(int mode)
 	for (int j = 1; j < STOP_FINITE / SAMPLE_INTERVAL + 1; j++) {
 		fprintf(file,
 			"%d,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf\n",
-			j, results[j][0], results[j][1], results[j][2],
-			results[j][3], results[j][4], results[j][5],
-			results[j][6], results[j][7], results[j][8],
-			results[j][9], results[j][10], results[j][11],
-			results[j][12], results[j][13], results[j][14],
-			results[j][15]);
+			j * SAMPLE_INTERVAL, results[j][0], results[j][1],
+			results[j][2], results[j][3], results[j][4],
+			results[j][5], results[j][6], results[j][7],
+			results[j][8], results[j][9], results[j][10],
+			results[j][11], results[j][12], results[j][13],
+			results[j][14], results[j][15]);
 	}
 
 	fclose(file);
