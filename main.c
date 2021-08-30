@@ -46,8 +46,8 @@
 #define DROPOFF_MEAN 1
 
 #define REPETITIONS 1000
-#define STOP_FINITE 360
-#define SAMPLE_INTERVAL 1
+#define STOP_FINITE 1440
+#define SAMPLE_INTERVAL 10
 
 FILE *st_file; //Service time
 FILE *node_population_file; //Node population
@@ -1008,7 +1008,7 @@ int repeat_finite_horizon(int mode)
 	for (int j = 1; j < STOP_FINITE / SAMPLE_INTERVAL + 1; j++) {
 		fprintf(file,
 			"%d,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf\n",
-			j * SAMPLE_INTERVAL, results[j][0], results[j][1], results[j][2],
+			j, results[j][0], results[j][1], results[j][2],
 			results[j][3], results[j][4], results[j][5],
 			results[j][6], results[j][7], results[j][8],
 			results[j][9], results[j][10], results[j][11],
@@ -1027,20 +1027,26 @@ int main(int argc, char **argv)
 
 	if (argc != 3) {
 		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite> (f finite, i infinite)\n");
-		return 1;
+		return -1;
 	}
 
 	PlantSeeds(SEED);
 
 	if (!strcmp(argv[1], "o")) {
 		mode = 0;
-	} else {
+	} else if (!strcmp(argv[1], "i")) {
 		mode = 1;
+	} else {
+		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite> (f finite, i infinite)\n");
+		return -1;
 	}
 
 	if (!strcmp(argv[2], "f")) {
 		return repeat_finite_horizon(mode);
-	} else {
+	} else if (!strcmp(argv[2], "i")) {
 		return simulate(mode);
+	} else {
+		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite> (f finite, i infinite)\n");
+		return -1;
 	}
 }
