@@ -374,6 +374,7 @@ int simulate(int mode)
 						&pass_type, &arrival);
 				}
 
+				SelectStream(255);
 				double time_airport =
 					Normal(TIME_IN_AIRPORT, VARIANCE);
 				double response_time = (t.current - arrival);
