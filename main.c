@@ -609,17 +609,6 @@ void finite_horizon(int mode, int rows, int columns,
 		    double statistics[rows][columns])
 {
 	struct node nodes[nodesNumber];
-	double area_first_class = 0;
-	double area_second_class = 0;
-	double area_total = 0;
-
-	int completion = 0;
-	int first_class_completion = 0;
-	int second_class_completion = 0;
-
-	double total_re = 0;
-	double first_re = 0;
-	double second_re = 0;
 
 	struct {
 		double arrival; /* next arrival time */
@@ -747,29 +736,7 @@ void finite_horizon(int mode, int rows, int columns,
 				utilization_dropoff;
 			statistics[(int)index / SAMPLE_INTERVAL][7] =
 				pop_dropoff;
-
-			if (completion != 0)
-				total_re = area_total / completion;
-			if (first_class_completion != 0)
-				first_re = area_first_class /
-					   first_class_completion;
-			if (second_class_completion != 0)
-				second_re = area_second_class /
-					    second_class_completion;
-
-			statistics[(int)index / SAMPLE_INTERVAL][8] = total_re;
-			statistics[(int)index / SAMPLE_INTERVAL][9] = first_re;
-			statistics[(int)index / SAMPLE_INTERVAL][10] =
-				second_re;
 		}
-
-		area_first_class = 0;
-		area_second_class = 0;
-		area_total = 0;
-
-		completion = 0;
-		first_class_completion = 0;
-		second_class_completion = 0;
 
 		t.current = t.next;
 
@@ -890,23 +857,11 @@ void finite_horizon(int mode, int rows, int columns,
 					dequeue(&nodes[id].head,
 						&nodes[id].tail, &pass_type,
 						&arrival);
-
-					area_first_class += t.current - arrival;
-					first_class_completion++;
 				} else {
 					dequeue(&nodes[id].head_second,
 						&nodes[id].tail_second,
 						&pass_type, &arrival);
-
-					area_second_class +=
-						t.current - arrival;
-					second_class_completion++;
 				}
-
-				double response_time = t.current - arrival;
-
-				area_total += response_time;
-				completion++;
 
 				if (nodes[id].number > 0)
 					nodes[id].completion =
@@ -977,17 +932,6 @@ void finite_horizon(int mode, int rows, int columns,
 		statistics[(int)index / SAMPLE_INTERVAL][6] =
 			utilization_dropoff;
 		statistics[(int)index / SAMPLE_INTERVAL][7] = pop_dropoff;
-
-		if (completion != 0)
-			total_re = area_total / completion;
-		if (first_class_completion != 0)
-			first_re = area_first_class / first_class_completion;
-		if (second_class_completion != 0)
-			second_re = area_second_class / second_class_completion;
-
-		statistics[(int)index / SAMPLE_INTERVAL][8] = total_re;
-		statistics[(int)index / SAMPLE_INTERVAL][9] = first_re;
-		statistics[(int)index / SAMPLE_INTERVAL][10] = second_re;
 	}
 
 	for (int i = 0; i < nodesNumber; i++) {
@@ -998,44 +942,40 @@ void finite_horizon(int mode, int rows, int columns,
 
 int repeat_finite_horizon(int mode)
 {
-	int columns = 22;
-	int stastistics_columns = 11;
+	int columns = 16;
 
 	double results[STOP_FINITE / SAMPLE_INTERVAL + 1][columns];
-	double statistics[STOP_FINITE / SAMPLE_INTERVAL + 1]
-			 [stastistics_columns];
+	double statistics[STOP_FINITE / SAMPLE_INTERVAL + 1][8];
 
 	for (int row = 0; row < STOP_FINITE / SAMPLE_INTERVAL + 1; row++) {
-		for (int column = 0; column < columns; column++) {
+		for (int column = 0; column < 16; column++) {
 			results[row][column] = 0;
 		}
 	}
 
 	for (int i = 1; i < REPETITIONS + 1; i++) {
-		finite_horizon(mode, STOP_FINITE / SAMPLE_INTERVAL + 1,
-			       stastistics_columns, statistics);
+		finite_horizon(mode, STOP_FINITE / SAMPLE_INTERVAL + 1, 8,
+			       statistics);
 
 		for (int j = 1; j < STOP_FINITE / SAMPLE_INTERVAL + 1; j++) {
-			for (int column = 0; column < stastistics_columns;
-			     column++) {
-				double diff = statistics[j][column] -
-					      results[j][column];
-				results[j][11 + column] +=
+			for (int columns = 0; columns < 8; columns++) {
+				double diff = statistics[j][columns] -
+					      results[j][columns];
+				results[j][8 + columns] +=
 					diff * diff * ((i - 1.0) / i);
-				results[j][column] += diff / i;
+				results[j][columns] += diff / i;
 			}
 		}
 	}
 
 	for (int j = 1; j < STOP_FINITE / SAMPLE_INTERVAL + 1; j++) {
-		for (int column = stastistics_columns; column < columns;
-		     column++) {
-			double variance = results[j][column] / REPETITIONS;
+		for (int columns = 8; columns < 16; columns++) {
+			double variance = results[j][columns] / REPETITIONS;
 			double stdev = sqrt(variance);
 
 			double t_student =
 				idfStudent(REPETITIONS - 1, 1 - ALFA / 2);
-			results[j][column] =
+			results[j][columns] =
 				t_student * stdev / sqrt(REPETITIONS - 1);
 		}
 	}
@@ -1060,24 +1000,20 @@ int repeat_finite_horizon(int mode)
 	fprintf(file,
 		"sample,utilization_temp_mean,population_temp_mean,utilization_check_mean,"
 		"population_check_mean,utilization_security_mean,population_security_mean,"
-		"utilization_dropoff_mean,population_dropoff_mean,total_response_time,"
-		"first_class_response_time,second_class_response_time,utilization_temp_endpoint,"
+		"utilization_dropoff_mean,population_dropoff_mean,utilization_temp_endpoint,"
 		"population_temp_endpoint,utilization_check_endpoint,population_check_endpoint,"
 		"utilization_security_endpoint,population_security_endpoint,"
-		"utilization_dropoff_endpoint,population_dropoff_endpoint,total_response_time_endpoint,"
-		"first_class_response_time_endpoint,second_class_response_time_endpoint,\n");
+		"utilization_dropoff_endpoint,population_dropoff_endpoint\n");
 
 	for (int j = 1; j < STOP_FINITE / SAMPLE_INTERVAL + 1; j++) {
 		fprintf(file,
-			"%d,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf\n",
+			"%d,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf\n",
 			j * SAMPLE_INTERVAL, results[j][0], results[j][1],
 			results[j][2], results[j][3], results[j][4],
 			results[j][5], results[j][6], results[j][7],
 			results[j][8], results[j][9], results[j][10],
 			results[j][11], results[j][12], results[j][13],
-			results[j][14], results[j][15], results[j][16],
-			results[j][17], results[j][18], results[j][19],
-			results[j][20], results[j][21]);
+			results[j][14], results[j][15]);
 	}
 
 	fclose(file);
