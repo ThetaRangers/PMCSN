@@ -18,9 +18,11 @@
 //#define INFINITY (100.0 * STOP) /* must be much larger than STOP  */
 
 #define TEMP_NODE 5
-#define CHECK_NODE 20
-#define SECURITY_NODE 20
+#define CHECK_NODE 15
+#define SECURITY_NODE 15
 #define DROPOFF_ONLINE 3
+
+#define MAX_SERVERS 248
 
 #define TIME_IN_AIRPORT 180
 #define VARIANCE 20
@@ -45,6 +47,8 @@
 #define SECURITY_MEAN 3
 #define DROPOFF_MEAN 1
 
+#define UTIL_THRESHOLD 0.4
+
 #define REPETITIONS 1000
 #define STOP_FINITE 360
 #define SAMPLE_INTERVAL 1
@@ -61,23 +65,79 @@ int online = 0;
 int dropoff = 0;
 int normal = 0;
 
+int current_temp = TEMP_NODE;
+int current_checkin = CHECK_NODE;
+int current_security = SECURITY_NODE;
+int current_dropoff = DROP_OFF;
+
+//Mean for different times
+double mean_0_6 = ARRIVAL_MEAN * 0.10;
+double mean_6_18 = ARRIVAL_MEAN * 0.70;
+double mean_18_24 = ARRIVAL_MEAN * 0.20;
+
 int nodesNumber = TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROPOFF_ONLINE;
 
-int getDestination(enum node_type type)
+struct node servers[4][MAX_SERVERS];
+
+int count_active(int block) {
+	int active = 0;
+	int i = 0;
+	
+	while (servers[block][i].open && i < MAX_SERVERS) {
+		active++;
+		i++;
+	}
+
+	return active;
+}
+
+void deactivate(int block) {
+	int i = 0;
+	int max_servers;
+
+	switch(block) {
+		case 0:
+		case 1:
+		case 2:
+		case 3:
+		default:
+		max_servers = MAX_SERVERS;
+		break;
+	}
+
+	while (servers[block][i].open && i < max_servers)
+		i++;
+	if (i != 0)
+		servers[block][i - 1].open = 0;
+}
+
+void activate(int block) {
+	int i = 0;
+	while (servers[block][i].open && i < MAX_SERVERS)
+		i++;
+	servers[block][i].open = 1;
+}
+
+int getDestination(enum node_type type, int *dest_type)
 {
 	double rand;
+	int active = 0;
 	switch (type) {
 	case TEMP:
 		SelectStream(253);
-		return Equilikely(0, TEMP_NODE - 1);
+		active = count_active(0);
+		*dest_type = 0;
+		return Equilikely(0, active - 1);
 	case CHECK:
 		SelectStream(252);
 		rand = Random();
 		if (rand < CHECK_PERC * (1 - FEVER_PERC)) {
 			normal++;
 			SelectStream(250);
-			return Equilikely(TEMP_NODE,
-					  TEMP_NODE + CHECK_NODE - 1);
+			active = count_active(1);
+			*dest_type = 1;
+
+			return Equilikely(0, active - 1);
 		} else if (rand <
 			   (CHECK_PERC + ONLINE_PERC) * (1 - FEVER_PERC)) {
 			SelectStream(249);
@@ -86,37 +146,57 @@ int getDestination(enum node_type type)
 			if (rand < 0.4) {
 				dropoff++;
 				SelectStream(248);
-				return Equilikely(
-					TEMP_NODE + CHECK_NODE + SECURITY_NODE,
-					TEMP_NODE + CHECK_NODE + SECURITY_NODE +
-						DROPOFF_ONLINE - 1);
+				*dest_type = 3;
+
+				active = count_active(3);
+
+				return Equilikely(0, active - 1);
 			} else {
 				online++;
-				return getDestination(SECURITY);
+
+				*dest_type = 2;
+				active = count_active(2);
+				return Equilikely(0, active - 1);
 			}
 		} else {
 			febbra++;
+			*dest_type = -1;
 			return -1;
 		}
 	case SECURITY:
 		SelectStream(251);
-		return Equilikely(TEMP_NODE + CHECK_NODE,
-				  TEMP_NODE + CHECK_NODE + SECURITY_NODE - 1);
+		*dest_type = 2;
+		active = count_active(2);
+		return Equilikely(0, active - 1);
 	default:
 		return 0;
 	}
 }
 
-double getArrival()
+double getArrival(double current)
 {
 	SelectStream(254);
 	arrival += Exponential(ARRIVAL_MEAN);
+	return arrival;
+
+	double hour = ((int) current/60) % 24;
+
+	if(hour < 6) {
+		arrival += Exponential(mean_0_6);
+	} else if(hour < 18) {
+		arrival += Exponential(mean_6_18);
+	} else {
+		arrival += Exponential(mean_18_24);
+	}
+
 	return (arrival);
 }
 
 double getService(enum node_type type, int id)
 {
+	//TODO change this
 	SelectStream(id);
+	//printf("TYPE: %d\n", type);
 	switch (type) {
 	case TEMP:
 		return Exponential(TEMP_MEAN);
@@ -187,7 +267,7 @@ int simulate(int mode)
 		exit(EXIT_FAILURE);
 	}
 
-	struct node nodes[nodesNumber];
+	//struct node nodes[nodesNumber];
 
 	struct {
 		double arrival; /* next arrival time */
@@ -199,50 +279,70 @@ int simulate(int mode)
 	long number = 0; /* Number in the network */
 
 	t.current = START; /* set the clock */
-	t.arrival = getArrival(); /* schedule the first arrival */
+	t.arrival = getArrival(t.current); /* schedule the first arrival */
 
 	//Initialize nodes
-	for (int i = 0; i < nodesNumber; i++) {
-		nodes[i].completion = INFINITY;
-		nodes[i].head = NULL;
-		nodes[i].tail = NULL;
-		nodes[i].head_second = NULL;
-		nodes[i].tail_second = NULL;
-		nodes[i].id = i;
-		nodes[i].number = 0;
+	for(int j = 0; j < 4; j++) {
+		for (int i = 0; i < MAX_SERVERS; i++) {
+			servers[j][i].completion = INFINITY;
+			servers[j][i].head = NULL;
+			servers[j][i].tail = NULL;
+			servers[j][i].head_second = NULL;
+			servers[j][i].tail_second = NULL;
+			servers[j][i].id = i;
+			servers[j][i].number = 0;
 
-		nodes[i].area.node = 0;
-		nodes[i].area.queue = 0;
-		nodes[i].area.service = 0;
+			servers[j][i].open = 0;
 
-		if (i < TEMP_NODE)
-			nodes[i].type = TEMP;
-		else if (i < TEMP_NODE + CHECK_NODE)
-			nodes[i].type = CHECK;
-		else if (i < TEMP_NODE + CHECK_NODE + SECURITY_NODE)
-			nodes[i].type = SECURITY;
-		else if (i < TEMP_NODE + CHECK_NODE + SECURITY_NODE +
-				     DROPOFF_ONLINE)
-			nodes[i].type = DROP_OFF;
+			servers[j][i].area.node = 0;
+			servers[j][i].area.queue = 0;
+			servers[j][i].area.service = 0;
+		}
+	}
+
+	//Set starting servers
+	for(int i = 0; i < TEMP_NODE; i++) {
+		servers[0][i].open = 1;
+	}
+	for(int i = 0; i < CHECK_NODE; i++) {
+		servers[1][i].open = 1;
+	}
+	for(int i = 0; i < SECURITY_NODE; i++) {
+		servers[2][i].open = 1;
+	}
+	for(int i = 0; i < DROP_OFF; i++) {
+		servers[3][i].open = 1;
 	}
 
 	int first_class_number = 0;
 	int second_class_number = 0;
 	int tot_arrivals = 0;
 
-	int id;
-	while ((t.arrival < STOP)) {
-		double minCompletion = minNode(nodes, nodesNumber, &id);
+	double util_temp = 0;
+	double util_check = 0;
+	double util_security = 0;
+	double util_dropoff = 0;
 
+	int id;
+	int type;
+	int dest_type;
+
+	while ((t.arrival < STOP)) {
+		//Calc Utilization
+
+		double minCompletion = minNode(servers, &id, &type);
+		
 		t.next = min(t.arrival, minCompletion);
 
-		for (int i = 0; i < nodesNumber; i++) {
-			if (nodes[i].number > 0) { // update integrals
-				nodes[i].area.node +=
-					(t.next - t.current) * nodes[i].number;
-				nodes[i].area.queue += (t.next - t.current) *
-						       (nodes[i].number - 1);
-				nodes[i].area.service += (t.next - t.current);
+		for(int j = 0; j < 4; j++) {
+			for (int i = 0; i < nodesNumber; i++) {
+				if (servers[j][i].number > 0) { // update integrals
+					servers[j][i].area.node +=
+						(t.next - t.current) * servers[j][i].number;
+					servers[j][i].area.queue += (t.next - t.current) *
+							       (servers[j][i].number - 1);
+					servers[j][i].area.service += (t.next - t.current);
+				}
 			}
 		}
 
@@ -252,68 +352,70 @@ int simulate(int mode)
 			number++;
 			tot_arrivals++;
 
-			int destination = getDestination(TEMP);
+			int destination = getDestination(TEMP, &dest_type);
 
-			enqueue(&nodes[destination].head,
-				&nodes[destination].tail, getPassenger(),
+			printf("Arrived -> %d-%d\n", dest_type, destination);
+
+			enqueue(&servers[dest_type][destination].head,
+				&servers[dest_type][destination].tail, getPassenger(),
 				t.arrival);
-			t.arrival = getArrival();
+			t.arrival = getArrival(t.current);
 
-			nodes[destination].number++;
+			servers[dest_type][destination].number++;
 
 			if (t.arrival > STOP) {
 				t.last = t.current;
 				t.arrival = INFINITY;
 			}
 
-			if (nodes[destination].number == 1)
-				nodes[destination].completion =
+			if (servers[dest_type][destination].number == 1)
+				servers[dest_type][destination].completion =
 					t.current +
-					getService(nodes[destination].type,
-						   destination);
+					getService(dest_type,destination);	
 
 		} else {
 			double arrival;
 			int destination = 0;
 			enum passenger_type pass_type;
-			enum node_type completion_type = nodes[id].type;
-			nodes[id].number--;
+			//enum node_type completion_type = servers[type][id].type;
+			servers[type][id].number--;
 
-			switch (completion_type) {
+			switch (type) {
 			case TEMP:
-				dequeue(&nodes[id].head, &nodes[id].tail,
+				dequeue(&servers[type][id].head, &servers[type][id].tail,
 					&pass_type, &arrival);
 
-				if (nodes[id].number > 0)
-					nodes[id].completion =
+				if (servers[type][id].number > 0)
+					servers[type][id].completion =
 						t.current +
-						getService(nodes[id].type, id);
+						getService(type, id);
 				else
-					nodes[id].completion = INFINITY;
+					servers[type][id].completion = INFINITY;
 
-				destination = getDestination(CHECK);
+				destination = getDestination(CHECK, &dest_type);
+				
 				if (destination != -1) {
-					nodes[destination].number++;
+					servers[dest_type][destination].number++;
+					printf("Completed temp -> %d-%d\n", dest_type, destination);
 
 					if (mode == 0 ||
 					    pass_type == FIRST_CLASS) {
-						enqueue(&nodes[destination].head,
-							&nodes[destination].tail,
+						enqueue(&servers[dest_type][destination].head,
+							&servers[dest_type][destination].tail,
 							pass_type, arrival);
 					} else {
-						enqueue(&nodes[destination]
+						enqueue(&servers[dest_type][destination]
 								 .head_second,
-							&nodes[destination]
+							&servers[dest_type][destination]
 								 .tail_second,
 							pass_type, arrival);
 					}
 
-					if (nodes[destination].number == 1)
-						nodes[destination].completion =
+					if (servers[dest_type][destination].number == 1)
+						servers[dest_type][destination].completion =
 							t.current +
 							getService(
-								nodes[destination]
-									.type,
+								dest_type,
 								destination);
 				} else {
 					number--;
@@ -322,62 +424,60 @@ int simulate(int mode)
 				break;
 			case DROP_OFF:
 			case CHECK:
-
-				if (mode == 0 || nodes[id].head != NULL) {
-					dequeue(&nodes[id].head,
-						&nodes[id].tail, &pass_type,
+				if (mode == 0 || servers[type][id].head != NULL) {
+					dequeue(&servers[type][id].head,
+						&servers[type][id].tail, &pass_type,
 						&arrival);
 				} else {
-					dequeue(&nodes[id].head_second,
-						&nodes[id].tail_second,
+					dequeue(&servers[type][id].head_second,
+						&servers[type][id].tail_second,
 						&pass_type, &arrival);
 				}
 
-				if (nodes[id].number > 0)
-					nodes[id].completion =
+				if (servers[type][id].number > 0)
+					servers[type][id].completion =
 						t.current +
-						getService(nodes[id].type, id);
+						getService(type, id);
 				else
-					nodes[id].completion = INFINITY;
+					servers[type][id].completion = INFINITY;
 
-				destination = getDestination(SECURITY);
-
-				nodes[destination].number++;
+				destination = getDestination(SECURITY, &dest_type);
+printf("Completed check-drop-off -> %d-%d\n", dest_type, destination);
+				servers[dest_type][destination].number++;
 				if (mode == 0 || pass_type == FIRST_CLASS) {
-					enqueue(&nodes[destination].head,
-						&nodes[destination].tail,
+					enqueue(&servers[dest_type][destination].head,
+						&servers[dest_type][destination].tail,
 						pass_type, arrival);
 				} else {
-					enqueue(&nodes[destination].head_second,
-						&nodes[destination].tail_second,
+					enqueue(&servers[dest_type][destination].head_second,
+						&servers[dest_type][destination].tail_second,
 						pass_type, arrival);
 				}
 
-				if (nodes[destination].number == 1)
-					nodes[destination].completion =
+				if (servers[dest_type][destination].number == 1)
+					servers[dest_type][destination].completion =
 						t.current +
 						getService(
-							nodes[destination].type,
+							dest_type,
 							destination);
 
 				break;
 			case SECURITY:
 				number--;
-
-				if (mode == 0 || nodes[id].head != NULL) {
-					dequeue(&nodes[id].head,
-						&nodes[id].tail, &pass_type,
+				if (mode == 0 || servers[type][id].head != NULL) {
+					dequeue(&servers[type][id].head,
+						&servers[type][id].tail, &pass_type,
 						&arrival);
 				} else {
-					dequeue(&nodes[id].head_second,
-						&nodes[id].tail_second,
+					dequeue(&servers[type][id].head_second,
+						&servers[type][id].tail_second,
 						&pass_type, &arrival);
 				}
-
 				SelectStream(255);
 				double time_airport =
 					Normal(TIME_IN_AIRPORT, VARIANCE);
 				double response_time = (t.current - arrival);
+				//printf("RESPONSE TIME %lf\n", response_time);
 
 				fprintf(st_file, "%lf, %lf, %ld\n", t.current,
 					response_time, number);
@@ -472,24 +572,26 @@ int simulate(int mode)
 							     spending;
 					}
 				}
-				if (nodes[id].number > 0)
-					nodes[id].completion =
+				if (servers[type][id].number > 0)
+					servers[type][id].completion =
 						t.current +
-						getService(nodes[id].type, id);
+						getService(type, id);
 				else
-					nodes[id].completion = INFINITY;
+					servers[type][id].completion = INFINITY;
 
 				break;
 			}
 
 			fprintf(node_population_file, "%lf, %d, %d\n",
-				t.current, id, nodes[id].number);
+				t.current, id, servers[type][id].number);
 		}
 	}
 
-	for (int i = 0; i < nodesNumber; i++) {
-		remove_all(&nodes[i].head);
-		remove_all(&nodes[i].head_second);
+	for(int j = 0; j < 4; j++) {
+		for (int i = 0; i < MAX_SERVERS; i++) {
+			remove_all(&servers[j][i].head);
+			remove_all(&servers[j][i].head_second);
+		}
 	}
 
 	// Last Welford iteration
@@ -585,6 +687,7 @@ int simulate(int mode)
 	       second_class_mean - second_class_endpoint,
 	       second_class_mean + second_class_endpoint);
 
+	/*
 	printf("\nUTILIZATION:\n");
 	for (int i = 0; i < nodesNumber; i++) {
 		char type_string[20];
@@ -601,426 +704,426 @@ int simulate(int mode)
 		printf("\t%s-%d......utilization: %lf, average population: %lf\n",
 		       type_string, i, nodes[i].area.service / t.current,
 		       nodes[i].area.node / t.current);
-	}
+	}*/
 
 	return 0;
 }
 
-void finite_horizon(int mode, int rows, int columns,
-		    double statistics[rows][columns])
-{
-	struct node nodes[nodesNumber];
-
-	struct {
-		double arrival; /* next arrival time */
-		double current; /* current time */
-		double next; /* next (most imminent) event time */
-		double last; /* last arrival time */
-	} t;
-
-	long number = 0; /* Number in the network */
-
-	arrival = 0;
-	t.current = START; /* set the clock */
-	t.arrival = getArrival(); /* schedule the first arrival */
-
-	//Initialize nodes
-	for (int i = 0; i < nodesNumber; i++) {
-		nodes[i].completion = INFINITY;
-		nodes[i].head = NULL;
-		nodes[i].tail = NULL;
-		nodes[i].head_second = NULL;
-		nodes[i].tail_second = NULL;
-		nodes[i].id = i;
-		nodes[i].number = 0;
-
-		nodes[i].area.node = 0;
-		nodes[i].area.queue = 0;
-		nodes[i].area.service = 0;
-
-		if (i < TEMP_NODE)
-			nodes[i].type = TEMP;
-		else if (i < TEMP_NODE + CHECK_NODE)
-			nodes[i].type = CHECK;
-		else if (i < TEMP_NODE + CHECK_NODE + SECURITY_NODE)
-			nodes[i].type = SECURITY;
-		else if (i < TEMP_NODE + CHECK_NODE + SECURITY_NODE +
-				     DROPOFF_ONLINE)
-			nodes[i].type = DROP_OFF;
-	}
-
-	int id;
-
-	double index = 0;
-
-	for (; index <= t.arrival; index += SAMPLE_INTERVAL) {
-		for (int j = 0; j < columns; j++) {
-			statistics[(int)(index / SAMPLE_INTERVAL)][columns] = 0;
-		}
-	}
-
-	while ((t.arrival < STOP_FINITE)) {
-		double minCompletion = minNode(nodes, nodesNumber, &id);
-
-		t.next = min(t.arrival, minCompletion);
-
-		for (int i = 0; i < nodesNumber; i++) {
-			if (nodes[i].number > 0) { // update integrals
-				nodes[i].area.node +=
-					(t.next - t.current) * nodes[i].number;
-				nodes[i].area.queue += (t.next - t.current) *
-						       (nodes[i].number - 1);
-				nodes[i].area.service += (t.next - t.current);
-			}
-		}
-
-		//Measure
-		double utilization_temp = 0;
-		double utilization_check = 0;
-		double utilization_dropoff = 0;
-		double utilization_security = 0;
-
-		double pop_temp = 0;
-		double pop_check = 0;
-		double pop_dropoff = 0;
-		double pop_security = 0;
-
-		for (int i = 0; i < TEMP_NODE; i++) {
-			utilization_temp += nodes[i].area.service / t.current;
-			pop_temp += nodes[i].area.node / t.current;
-		}
-		utilization_temp = utilization_temp / TEMP_NODE;
-		pop_temp = pop_temp / TEMP_NODE;
-
-		for (int i = TEMP_NODE; i < TEMP_NODE + CHECK_NODE; i++) {
-			utilization_check += nodes[i].area.service / t.current;
-			pop_check += nodes[i].area.node / t.current;
-		}
-		utilization_check = utilization_check / CHECK_NODE;
-		pop_check = pop_check / CHECK_NODE;
-
-		for (int i = TEMP_NODE + CHECK_NODE;
-		     i < TEMP_NODE + CHECK_NODE + SECURITY_NODE; i++) {
-			utilization_security +=
-				nodes[i].area.service / t.current;
-			pop_security += nodes[i].area.node / t.current;
-		}
-		utilization_security = utilization_security / SECURITY_NODE;
-		pop_security = pop_security / SECURITY_NODE;
-
-		for (int i = TEMP_NODE + CHECK_NODE + SECURITY_NODE;
-		     i < TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROP_OFF;
-		     i++) {
-			utilization_dropoff +=
-				nodes[i].area.service / t.current;
-			pop_dropoff += nodes[i].area.node / t.current;
-		}
-		utilization_dropoff = utilization_dropoff / DROP_OFF;
-		pop_dropoff = pop_dropoff / DROP_OFF;
-
-		//Update
-		for (; index <= t.next; index += SAMPLE_INTERVAL) {
-			statistics[(int)index / SAMPLE_INTERVAL][0] =
-				utilization_temp;
-			statistics[(int)index / SAMPLE_INTERVAL][1] = pop_temp;
-
-			statistics[(int)index / SAMPLE_INTERVAL][2] =
-				utilization_check;
-			statistics[(int)index / SAMPLE_INTERVAL][3] = pop_check;
-
-			statistics[(int)index / SAMPLE_INTERVAL][4] =
-				utilization_security;
-			statistics[(int)index / SAMPLE_INTERVAL][5] =
-				pop_security;
-
-			statistics[(int)index / SAMPLE_INTERVAL][6] =
-				utilization_dropoff;
-			statistics[(int)index / SAMPLE_INTERVAL][7] =
-				pop_dropoff;
-		}
-
-		t.current = t.next;
-
-		if (t.current == t.arrival) {
-			number++;
-
-			int destination = getDestination(TEMP);
-
-			enqueue(&nodes[destination].head,
-				&nodes[destination].tail, getPassenger(),
-				t.arrival);
-			t.arrival = getArrival();
-
-			nodes[destination].number++;
-
-			if (t.arrival > STOP) {
-				t.last = t.current;
-				t.arrival = INFINITY;
-			}
-
-			if (nodes[destination].number == 1)
-				nodes[destination].completion =
-					t.current +
-					getService(nodes[destination].type,
-						   destination);
-
-		} else {
-			double arrival;
-			int destination = 0;
-			enum passenger_type pass_type;
-			enum node_type completion_type = nodes[id].type;
-			nodes[id].number--;
-
-			switch (completion_type) {
-			case TEMP:
-				dequeue(&nodes[id].head, &nodes[id].tail,
-					&pass_type, &arrival);
-
-				if (nodes[id].number > 0)
-					nodes[id].completion =
-						t.current +
-						getService(nodes[id].type, id);
-				else
-					nodes[id].completion = INFINITY;
-
-				destination = getDestination(CHECK);
-				if (destination != -1) {
-					nodes[destination].number++;
-
-					if (mode == 0 ||
-					    pass_type == FIRST_CLASS) {
-						enqueue(&nodes[destination].head,
-							&nodes[destination].tail,
-							pass_type, arrival);
-					} else {
-						enqueue(&nodes[destination]
-								 .head_second,
-							&nodes[destination]
-								 .tail_second,
-							pass_type, arrival);
-					}
-					if (nodes[destination].number == 1)
-						nodes[destination].completion =
-							t.current +
-							getService(
-								nodes[destination]
-									.type,
-								destination);
-				} else {
-					number--;
-				}
-
-				break;
-			case DROP_OFF:
-			case CHECK:
-				if (mode == 0 || nodes[id].head != NULL) {
-					dequeue(&nodes[id].head,
-						&nodes[id].tail, &pass_type,
-						&arrival);
-				} else {
-					dequeue(&nodes[id].head_second,
-						&nodes[id].tail_second,
-						&pass_type, &arrival);
-				}
-
-				if (nodes[id].number > 0)
-					nodes[id].completion =
-						t.current +
-						getService(nodes[id].type, id);
-				else
-					nodes[id].completion = INFINITY;
-
-				destination = getDestination(SECURITY);
-
-				nodes[destination].number++;
-				if (mode == 0 || pass_type == FIRST_CLASS) {
-					enqueue(&nodes[destination].head,
-						&nodes[destination].tail,
-						pass_type, arrival);
-				} else {
-					enqueue(&nodes[destination].head_second,
-						&nodes[destination].tail_second,
-						pass_type, arrival);
-				}
-
-				if (nodes[destination].number == 1)
-					nodes[destination].completion =
-						t.current +
-						getService(
-							nodes[destination].type,
-							destination);
-
-				break;
-			case SECURITY:
-				number--;
-
-				if (mode == 0 || nodes[id].head != NULL) {
-					dequeue(&nodes[id].head,
-						&nodes[id].tail, &pass_type,
-						&arrival);
-				} else {
-					dequeue(&nodes[id].head_second,
-						&nodes[id].tail_second,
-						&pass_type, &arrival);
-				}
-
-				if (nodes[id].number > 0)
-					nodes[id].completion =
-						t.current +
-						getService(nodes[id].type, id);
-				else
-					nodes[id].completion = INFINITY;
-
-				break;
-			}
-		}
-	}
-
-	double utilization_temp = 0;
-	double utilization_check = 0;
-	double utilization_dropoff = 0;
-	double utilization_security = 0;
-
-	double pop_temp = 0;
-	double pop_check = 0;
-	double pop_dropoff = 0;
-	double pop_security = 0;
-
-	t.next = STOP_FINITE;
-
-	for (int i = 0; i < TEMP_NODE; i++) {
-		utilization_temp += nodes[i].area.service / t.current;
-		pop_temp += nodes[i].area.node / t.current;
-	}
-	utilization_temp = utilization_temp / TEMP_NODE;
-	pop_temp = pop_temp / TEMP_NODE;
-
-	for (int i = TEMP_NODE; i < TEMP_NODE + CHECK_NODE; i++) {
-		utilization_check += nodes[i].area.service / t.current;
-		pop_check += nodes[i].area.node / t.current;
-	}
-	utilization_check = utilization_check / CHECK_NODE;
-	pop_check = pop_check / CHECK_NODE;
-
-	for (int i = TEMP_NODE + CHECK_NODE;
-	     i < TEMP_NODE + CHECK_NODE + SECURITY_NODE; i++) {
-		utilization_security += nodes[i].area.service / t.current;
-		pop_security += nodes[i].area.node / t.current;
-	}
-	utilization_security = utilization_security / SECURITY_NODE;
-	pop_security = pop_security / SECURITY_NODE;
-
-	for (int i = TEMP_NODE + CHECK_NODE + SECURITY_NODE;
-	     i < TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROP_OFF; i++) {
-		utilization_dropoff += nodes[i].area.service / t.current;
-		pop_dropoff += nodes[i].area.node / t.current;
-	}
-	utilization_dropoff = utilization_dropoff / DROP_OFF;
-	pop_dropoff = pop_dropoff / DROP_OFF;
-
-	//Update
-	for (; index <= t.next; index += SAMPLE_INTERVAL) {
-		statistics[(int)index / SAMPLE_INTERVAL][0] = utilization_temp;
-		statistics[(int)index / SAMPLE_INTERVAL][1] = pop_temp;
-
-		statistics[(int)index / SAMPLE_INTERVAL][2] = utilization_check;
-		statistics[(int)index / SAMPLE_INTERVAL][3] = pop_check;
-
-		statistics[(int)index / SAMPLE_INTERVAL][4] =
-			utilization_security;
-		statistics[(int)index / SAMPLE_INTERVAL][5] = pop_security;
-
-		statistics[(int)index / SAMPLE_INTERVAL][6] =
-			utilization_dropoff;
-		statistics[(int)index / SAMPLE_INTERVAL][7] = pop_dropoff;
-	}
-
-	for (int i = 0; i < nodesNumber; i++) {
-		remove_all(&nodes[i].head);
-		remove_all(&nodes[i].head_second);
-	}
-}
-
-int repeat_finite_horizon(int mode)
-{
-	int columns = 16;
-
-	double results[STOP_FINITE / SAMPLE_INTERVAL + 1][columns];
-	double statistics[STOP_FINITE / SAMPLE_INTERVAL + 1][8];
-
-	for (int row = 0; row < STOP_FINITE / SAMPLE_INTERVAL + 1; row++) {
-		for (int column = 0; column < 16; column++) {
-			results[row][column] = 0;
-		}
-	}
-
-	for (int i = 1; i < REPETITIONS + 1; i++) {
-		finite_horizon(mode, STOP_FINITE / SAMPLE_INTERVAL + 1, 8,
-			       statistics);
-
-		for (int j = 1; j < STOP_FINITE / SAMPLE_INTERVAL + 1; j++) {
-			for (int columns = 0; columns < 8; columns++) {
-				double diff = statistics[j][columns] -
-					      results[j][columns];
-				results[j][8 + columns] +=
-					diff * diff * ((i - 1.0) / i);
-				results[j][columns] += diff / i;
-			}
-		}
-	}
-
-	for (int j = 1; j < STOP_FINITE / SAMPLE_INTERVAL + 1; j++) {
-		for (int columns = 8; columns < 16; columns++) {
-			double variance = results[j][columns] / REPETITIONS;
-			double stdev = sqrt(variance);
-
-			double t_student =
-				idfStudent(REPETITIONS - 1, 1 - ALFA / 2);
-			results[j][columns] =
-				t_student * stdev / sqrt(REPETITIONS - 1);
-		}
-	}
-
-	int fd;
-
-	if (mode == 0) {
-		fd = open("finite_horizon.csv", O_WRONLY | O_CREAT | O_TRUNC,
-			  0644);
-	} else {
-		fd = open("finite_horizon_improved.csv",
-			  O_WRONLY | O_CREAT | O_TRUNC, 0644);
-	}
-
-	if (fd == -1) {
-		perror("open");
-		exit(EXIT_FAILURE);
-	}
-
-	FILE *file = fdopen(fd, "w");
-
-	fprintf(file,
-		"sample,utilization_temp_mean,population_temp_mean,utilization_check_mean,"
-		"population_check_mean,utilization_security_mean,population_security_mean,"
-		"utilization_dropoff_mean,population_dropoff_mean,utilization_temp_endpoint,"
-		"population_temp_endpoint,utilization_check_endpoint,population_check_endpoint,"
-		"utilization_security_endpoint,population_security_endpoint,"
-		"utilization_dropoff_endpoint,population_dropoff_endpoint\n");
-
-	for (int j = 1; j < STOP_FINITE / SAMPLE_INTERVAL + 1; j++) {
-		fprintf(file,
-			"%d,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf\n",
-			j * SAMPLE_INTERVAL, results[j][0], results[j][1],
-			results[j][2], results[j][3], results[j][4],
-			results[j][5], results[j][6], results[j][7],
-			results[j][8], results[j][9], results[j][10],
-			results[j][11], results[j][12], results[j][13],
-			results[j][14], results[j][15]);
-	}
-
-	fclose(file);
-
-	return 0;
-}
+// void finite_horizon(int mode, int rows, int columns,
+// 		    double statistics[rows][columns])
+// {
+// 	struct node nodes[nodesNumber];
+
+// 	struct {
+// 		double arrival; /* next arrival time */
+// 		double current; /* current time */
+// 		double next; /* next (most imminent) event time */
+// 		double last; /* last arrival time */
+// 	} t;
+
+// 	long number = 0; /* Number in the network */
+
+// 	arrival = 0;
+// 	t.current = START; /* set the clock */
+// 	t.arrival = getArrival(t.current); /* schedule the first arrival */
+
+// 	//Initialize nodes
+// 	for (int i = 0; i < nodesNumber; i++) {
+// 		nodes[i].completion = INFINITY;
+// 		nodes[i].head = NULL;
+// 		nodes[i].tail = NULL;
+// 		nodes[i].head_second = NULL;
+// 		nodes[i].tail_second = NULL;
+// 		nodes[i].id = i;
+// 		nodes[i].number = 0;
+
+// 		nodes[i].area.node = 0;
+// 		nodes[i].area.queue = 0;
+// 		nodes[i].area.service = 0;
+
+// 		if (i < TEMP_NODE)
+// 			nodes[i].type = TEMP;
+// 		else if (i < TEMP_NODE + CHECK_NODE)
+// 			nodes[i].type = CHECK;
+// 		else if (i < TEMP_NODE + CHECK_NODE + SECURITY_NODE)
+// 			nodes[i].type = SECURITY;
+// 		else if (i < TEMP_NODE + CHECK_NODE + SECURITY_NODE +
+// 				     DROPOFF_ONLINE)
+// 			nodes[i].type = DROP_OFF;
+// 	}
+
+// 	int id;
+
+// 	double index = 0;
+
+// 	for (; index <= t.arrival; index += SAMPLE_INTERVAL) {
+// 		for (int j = 0; j < columns; j++) {
+// 			statistics[(int)(index / SAMPLE_INTERVAL)][columns] = 0;
+// 		}
+// 	}
+
+// 	while ((t.arrival < STOP_FINITE)) {
+// 		double minCompletion = minNode(nodes, nodesNumber, &id);
+
+// 		t.next = min(t.arrival, minCompletion);
+
+// 		for (int i = 0; i < nodesNumber; i++) {
+// 			if (nodes[i].number > 0) { // update integrals
+// 				nodes[i].area.node +=
+// 					(t.next - t.current) * nodes[i].number;
+// 				nodes[i].area.queue += (t.next - t.current) *
+// 						       (nodes[i].number - 1);
+// 				nodes[i].area.service += (t.next - t.current);
+// 			}
+// 		}
+
+// 		//Measure
+// 		double utilization_temp = 0;
+// 		double utilization_check = 0;
+// 		double utilization_dropoff = 0;
+// 		double utilization_security = 0;
+
+// 		double pop_temp = 0;
+// 		double pop_check = 0;
+// 		double pop_dropoff = 0;
+// 		double pop_security = 0;
+
+// 		for (int i = 0; i < TEMP_NODE; i++) {
+// 			utilization_temp += nodes[i].area.service / t.current;
+// 			pop_temp += nodes[i].area.node / t.current;
+// 		}
+// 		utilization_temp = utilization_temp / TEMP_NODE;
+// 		pop_temp = pop_temp / TEMP_NODE;
+
+// 		for (int i = TEMP_NODE; i < TEMP_NODE + CHECK_NODE; i++) {
+// 			utilization_check += nodes[i].area.service / t.current;
+// 			pop_check += nodes[i].area.node / t.current;
+// 		}
+// 		utilization_check = utilization_check / CHECK_NODE;
+// 		pop_check = pop_check / CHECK_NODE;
+
+// 		for (int i = TEMP_NODE + CHECK_NODE;
+// 		     i < TEMP_NODE + CHECK_NODE + SECURITY_NODE; i++) {
+// 			utilization_security +=
+// 				nodes[i].area.service / t.current;
+// 			pop_security += nodes[i].area.node / t.current;
+// 		}
+// 		utilization_security = utilization_security / SECURITY_NODE;
+// 		pop_security = pop_security / SECURITY_NODE;
+
+// 		for (int i = TEMP_NODE + CHECK_NODE + SECURITY_NODE;
+// 		     i < TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROP_OFF;
+// 		     i++) {
+// 			utilization_dropoff +=
+// 				nodes[i].area.service / t.current;
+// 			pop_dropoff += nodes[i].area.node / t.current;
+// 		}
+// 		utilization_dropoff = utilization_dropoff / DROP_OFF;
+// 		pop_dropoff = pop_dropoff / DROP_OFF;
+
+// 		//Update
+// 		for (; index <= t.next; index += SAMPLE_INTERVAL) {
+// 			statistics[(int)index / SAMPLE_INTERVAL][0] =
+// 				utilization_temp;
+// 			statistics[(int)index / SAMPLE_INTERVAL][1] = pop_temp;
+
+// 			statistics[(int)index / SAMPLE_INTERVAL][2] =
+// 				utilization_check;
+// 			statistics[(int)index / SAMPLE_INTERVAL][3] = pop_check;
+
+// 			statistics[(int)index / SAMPLE_INTERVAL][4] =
+// 				utilization_security;
+// 			statistics[(int)index / SAMPLE_INTERVAL][5] =
+// 				pop_security;
+
+// 			statistics[(int)index / SAMPLE_INTERVAL][6] =
+// 				utilization_dropoff;
+// 			statistics[(int)index / SAMPLE_INTERVAL][7] =
+// 				pop_dropoff;
+// 		}
+
+// 		t.current = t.next;
+
+// 		if (t.current == t.arrival) {
+// 			number++;
+
+// 			int destination = getDestination(TEMP);
+
+// 			enqueue(&nodes[destination].head,
+// 				&nodes[destination].tail, getPassenger(),
+// 				t.arrival);
+// 			t.arrival = getArrival(t.current);
+
+// 			nodes[destination].number++;
+
+// 			if (t.arrival > STOP) {
+// 				t.last = t.current;
+// 				t.arrival = INFINITY;
+// 			}
+
+// 			if (nodes[destination].number == 1)
+// 				nodes[destination].completion =
+// 					t.current +
+// 					getService(nodes[destination].type,
+// 						   destination);
+
+// 		} else {
+// 			double arrival;
+// 			int destination = 0;
+// 			enum passenger_type pass_type;
+// 			enum node_type completion_type = nodes[id].type;
+// 			nodes[id].number--;
+
+// 			switch (completion_type) {
+// 			case TEMP:
+// 				dequeue(&nodes[id].head, &nodes[id].tail,
+// 					&pass_type, &arrival);
+
+// 				if (nodes[id].number > 0)
+// 					nodes[id].completion =
+// 						t.current +
+// 						getService(nodes[id].type, id);
+// 				else
+// 					nodes[id].completion = INFINITY;
+
+// 				destination = getDestination(CHECK);
+// 				if (destination != -1) {
+// 					nodes[destination].number++;
+
+// 					if (mode == 0 ||
+// 					    pass_type == FIRST_CLASS) {
+// 						enqueue(&nodes[destination].head,
+// 							&nodes[destination].tail,
+// 							pass_type, arrival);
+// 					} else {
+// 						enqueue(&nodes[destination]
+// 								 .head_second,
+// 							&nodes[destination]
+// 								 .tail_second,
+// 							pass_type, arrival);
+// 					}
+// 					if (nodes[destination].number == 1)
+// 						nodes[destination].completion =
+// 							t.current +
+// 							getService(
+// 								nodes[destination]
+// 									.type,
+// 								destination);
+// 				} else {
+// 					number--;
+// 				}
+
+// 				break;
+// 			case DROP_OFF:
+// 			case CHECK:
+// 				if (mode == 0 || nodes[id].head != NULL) {
+// 					dequeue(&nodes[id].head,
+// 						&nodes[id].tail, &pass_type,
+// 						&arrival);
+// 				} else {
+// 					dequeue(&nodes[id].head_second,
+// 						&nodes[id].tail_second,
+// 						&pass_type, &arrival);
+// 				}
+
+// 				if (nodes[id].number > 0)
+// 					nodes[id].completion =
+// 						t.current +
+// 						getService(nodes[id].type, id);
+// 				else
+// 					nodes[id].completion = INFINITY;
+
+// 				destination = getDestination(SECURITY);
+
+// 				nodes[destination].number++;
+// 				if (mode == 0 || pass_type == FIRST_CLASS) {
+// 					enqueue(&nodes[destination].head,
+// 						&nodes[destination].tail,
+// 						pass_type, arrival);
+// 				} else {
+// 					enqueue(&nodes[destination].head_second,
+// 						&nodes[destination].tail_second,
+// 						pass_type, arrival);
+// 				}
+
+// 				if (nodes[destination].number == 1)
+// 					nodes[destination].completion =
+// 						t.current +
+// 						getService(
+// 							nodes[destination].type,
+// 							destination);
+
+// 				break;
+// 			case SECURITY:
+// 				number--;
+
+// 				if (mode == 0 || nodes[id].head != NULL) {
+// 					dequeue(&nodes[id].head,
+// 						&nodes[id].tail, &pass_type,
+// 						&arrival);
+// 				} else {
+// 					dequeue(&nodes[id].head_second,
+// 						&nodes[id].tail_second,
+// 						&pass_type, &arrival);
+// 				}
+
+// 				if (nodes[id].number > 0)
+// 					nodes[id].completion =
+// 						t.current +
+// 						getService(nodes[id].type, id);
+// 				else
+// 					nodes[id].completion = INFINITY;
+
+// 				break;
+// 			}
+// 		}
+// 	}
+
+// 	double utilization_temp = 0;
+// 	double utilization_check = 0;
+// 	double utilization_dropoff = 0;
+// 	double utilization_security = 0;
+
+// 	double pop_temp = 0;
+// 	double pop_check = 0;
+// 	double pop_dropoff = 0;
+// 	double pop_security = 0;
+
+// 	t.next = STOP_FINITE;
+
+// 	for (int i = 0; i < TEMP_NODE; i++) {
+// 		utilization_temp += nodes[i].area.service / t.current;
+// 		pop_temp += nodes[i].area.node / t.current;
+// 	}
+// 	utilization_temp = utilization_temp / TEMP_NODE;
+// 	pop_temp = pop_temp / TEMP_NODE;
+
+// 	for (int i = TEMP_NODE; i < TEMP_NODE + CHECK_NODE; i++) {
+// 		utilization_check += nodes[i].area.service / t.current;
+// 		pop_check += nodes[i].area.node / t.current;
+// 	}
+// 	utilization_check = utilization_check / CHECK_NODE;
+// 	pop_check = pop_check / CHECK_NODE;
+
+// 	for (int i = TEMP_NODE + CHECK_NODE;
+// 	     i < TEMP_NODE + CHECK_NODE + SECURITY_NODE; i++) {
+// 		utilization_security += nodes[i].area.service / t.current;
+// 		pop_security += nodes[i].area.node / t.current;
+// 	}
+// 	utilization_security = utilization_security / SECURITY_NODE;
+// 	pop_security = pop_security / SECURITY_NODE;
+
+// 	for (int i = TEMP_NODE + CHECK_NODE + SECURITY_NODE;
+// 	     i < TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROP_OFF; i++) {
+// 		utilization_dropoff += nodes[i].area.service / t.current;
+// 		pop_dropoff += nodes[i].area.node / t.current;
+// 	}
+// 	utilization_dropoff = utilization_dropoff / DROP_OFF;
+// 	pop_dropoff = pop_dropoff / DROP_OFF;
+
+// 	//Update
+// 	for (; index <= t.next; index += SAMPLE_INTERVAL) {
+// 		statistics[(int)index / SAMPLE_INTERVAL][0] = utilization_temp;
+// 		statistics[(int)index / SAMPLE_INTERVAL][1] = pop_temp;
+
+// 		statistics[(int)index / SAMPLE_INTERVAL][2] = utilization_check;
+// 		statistics[(int)index / SAMPLE_INTERVAL][3] = pop_check;
+
+// 		statistics[(int)index / SAMPLE_INTERVAL][4] =
+// 			utilization_security;
+// 		statistics[(int)index / SAMPLE_INTERVAL][5] = pop_security;
+
+// 		statistics[(int)index / SAMPLE_INTERVAL][6] =
+// 			utilization_dropoff;
+// 		statistics[(int)index / SAMPLE_INTERVAL][7] = pop_dropoff;
+// 	}
+
+// 	for (int i = 0; i < nodesNumber; i++) {
+// 		remove_all(&nodes[i].head);
+// 		remove_all(&nodes[i].head_second);
+// 	}
+// }
+
+// int repeat_finite_horizon(int mode)
+// {
+// 	int columns = 16;
+
+// 	double results[STOP_FINITE / SAMPLE_INTERVAL + 1][columns];
+// 	double statistics[STOP_FINITE / SAMPLE_INTERVAL + 1][8];
+
+// 	for (int row = 0; row < STOP_FINITE / SAMPLE_INTERVAL + 1; row++) {
+// 		for (int column = 0; column < 16; column++) {
+// 			results[row][column] = 0;
+// 		}
+// 	}
+
+// 	for (int i = 1; i < REPETITIONS + 1; i++) {
+// 		finite_horizon(mode, STOP_FINITE / SAMPLE_INTERVAL + 1, 8,
+// 			       statistics);
+
+// 		for (int j = 1; j < STOP_FINITE / SAMPLE_INTERVAL + 1; j++) {
+// 			for (int columns = 0; columns < 8; columns++) {
+// 				double diff = statistics[j][columns] -
+// 					      results[j][columns];
+// 				results[j][8 + columns] +=
+// 					diff * diff * ((i - 1.0) / i);
+// 				results[j][columns] += diff / i;
+// 			}
+// 		}
+// 	}
+
+// 	for (int j = 1; j < STOP_FINITE / SAMPLE_INTERVAL + 1; j++) {
+// 		for (int columns = 8; columns < 16; columns++) {
+// 			double variance = results[j][columns] / REPETITIONS;
+// 			double stdev = sqrt(variance);
+
+// 			double t_student =
+// 				idfStudent(REPETITIONS - 1, 1 - ALFA / 2);
+// 			results[j][columns] =
+// 				t_student * stdev / sqrt(REPETITIONS - 1);
+// 		}
+// 	}
+
+// 	int fd;
+
+// 	if (mode == 0) {
+// 		fd = open("finite_horizon.csv", O_WRONLY | O_CREAT | O_TRUNC,
+// 			  0644);
+// 	} else {
+// 		fd = open("finite_horizon_improved.csv",
+// 			  O_WRONLY | O_CREAT | O_TRUNC, 0644);
+// 	}
+
+// 	if (fd == -1) {
+// 		perror("open");
+// 		exit(EXIT_FAILURE);
+// 	}
+
+// 	FILE *file = fdopen(fd, "w");
+
+// 	fprintf(file,
+// 		"sample,utilization_temp_mean,population_temp_mean,utilization_check_mean,"
+// 		"population_check_mean,utilization_security_mean,population_security_mean,"
+// 		"utilization_dropoff_mean,population_dropoff_mean,utilization_temp_endpoint,"
+// 		"population_temp_endpoint,utilization_check_endpoint,population_check_endpoint,"
+// 		"utilization_security_endpoint,population_security_endpoint,"
+// 		"utilization_dropoff_endpoint,population_dropoff_endpoint\n");
+
+// 	for (int j = 1; j < STOP_FINITE / SAMPLE_INTERVAL + 1; j++) {
+// 		fprintf(file,
+// 			"%d,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf\n",
+// 			j * SAMPLE_INTERVAL, results[j][0], results[j][1],
+// 			results[j][2], results[j][3], results[j][4],
+// 			results[j][5], results[j][6], results[j][7],
+// 			results[j][8], results[j][9], results[j][10],
+// 			results[j][11], results[j][12], results[j][13],
+// 			results[j][14], results[j][15]);
+// 	}
+
+// 	fclose(file);
+
+// 	return 0;
+// }
 
 int main(int argc, char **argv)
 {
@@ -1043,7 +1146,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[2], "f")) {
-		return repeat_finite_horizon(mode);
+		//return repeat_finite_horizon(mode);
 	} else if (!strcmp(argv[2], "i")) {
 		return simulate(mode);
 	} else {

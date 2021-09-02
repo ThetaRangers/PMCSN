@@ -17,6 +17,8 @@ struct node {
 	struct passenger *head_second;
 	struct passenger *tail_second;
 	struct area area;
+	double active_time;
+	int open;
 	int number;
 	double completion;
 	int id; //Server id
@@ -25,6 +27,7 @@ struct node {
 
 double min(double a, double c);
 enum passenger_type getPassenger();
-double minNode(struct node *nodes, int len, int *id);
+//double minNode(struct node *nodes, int len, int *id);
+double minNode(struct node nodes[4][248], int *id, int *type);
 
 #endif
