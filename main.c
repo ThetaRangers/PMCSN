@@ -18,11 +18,16 @@
 //#define INFINITY (100.0 * STOP) /* must be much larger than STOP  */
 
 #define TEMP_NODE 5
-#define CHECK_NODE 15
-#define SECURITY_NODE 15
+#define CHECK_NODE 20
+#define SECURITY_NODE 20
 #define DROPOFF_ONLINE 3
 
 #define MAX_SERVERS 248
+
+#define MAX_TEMP 10
+#define MAX_CHECK 100
+#define MAX_SECURITY 100
+#define MAX_DROP_OFF 10
 
 #define TIME_IN_AIRPORT 180
 #define VARIANCE 20
@@ -71,9 +76,9 @@ int current_security = SECURITY_NODE;
 int current_dropoff = DROP_OFF;
 
 //Mean for different times
-double mean_0_6 = ARRIVAL_MEAN * 0.10;
-double mean_6_18 = ARRIVAL_MEAN * 0.70;
-double mean_18_24 = ARRIVAL_MEAN * 0.20;
+double mean_0_6 = ARRIVAL_MEAN * (1/0.10);
+double mean_6_18 = ARRIVAL_MEAN * (1/0.70);
+double mean_18_24 = ARRIVAL_MEAN * (1/0.20);
 
 int nodesNumber = TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROPOFF_ONLINE;
 
@@ -82,8 +87,27 @@ struct node servers[4][MAX_SERVERS];
 int count_active(int block) {
 	int active = 0;
 	int i = 0;
+	int max_servers;
+
+	switch(block) {
+		case 0:
+		max_servers = MAX_TEMP;
+		break;
+		case 1:
+		max_servers = MAX_CHECK;
+		break;
+		case 2:
+		max_servers = MAX_SECURITY;
+		break;
+		case 3:
+		max_servers = MAX_DROP_OFF;
+		break;
+		default:
+		max_servers = MAX_SERVERS;
+		break;
+	}
 	
-	while (servers[block][i].open && i < MAX_SERVERS) {
+	while (servers[block][i].open && i < max_servers) {
 		active++;
 		i++;
 	}
@@ -97,9 +121,17 @@ void deactivate(int block) {
 
 	switch(block) {
 		case 0:
+		max_servers = MAX_TEMP;
+		break;
 		case 1:
+		max_servers = MAX_CHECK;
+		break;
 		case 2:
+		max_servers = MAX_SECURITY;
+		break;
 		case 3:
+		max_servers = MAX_DROP_OFF;
+		break;
 		default:
 		max_servers = MAX_SERVERS;
 		break;
@@ -113,7 +145,27 @@ void deactivate(int block) {
 
 void activate(int block) {
 	int i = 0;
-	while (servers[block][i].open && i < MAX_SERVERS)
+	int max_servers;
+
+	switch(block) {
+		case 0:
+		max_servers = MAX_TEMP;
+		break;
+		case 1:
+		max_servers = MAX_CHECK;
+		break;
+		case 2:
+		max_servers = MAX_SECURITY;
+		break;
+		case 3:
+		max_servers = MAX_DROP_OFF;
+		break;
+		default:
+		max_servers = MAX_SERVERS;
+		break;
+	}
+
+	while (servers[block][i].open && i < max_servers)
 		i++;
 	servers[block][i].open = 1;
 }
@@ -156,6 +208,7 @@ int getDestination(enum node_type type, int *dest_type)
 
 				*dest_type = 2;
 				active = count_active(2);
+				
 				return Equilikely(0, active - 1);
 			}
 		} else {
@@ -177,16 +230,17 @@ double getArrival(double current)
 {
 	SelectStream(254);
 	arrival += Exponential(ARRIVAL_MEAN);
+	//printf("Mean 0 6: %lf\n", mean_0_6);
 	return arrival;
-
+	//TODOOOOOOOO
 	double hour = ((int) current/60) % 24;
 
 	if(hour < 6) {
-		arrival += Exponential(mean_0_6);
+		arrival += Exponential(mean_0_6 * (1.0/2 * 0.25));
 	} else if(hour < 18) {
-		arrival += Exponential(mean_6_18);
+		arrival += Exponential(mean_6_18 * (1.0/2 * 0.5));
 	} else {
-		arrival += Exponential(mean_18_24);
+		arrival += Exponential(mean_18_24 * (1.0/2 * 0.25));
 	}
 
 	return (arrival);
@@ -194,9 +248,8 @@ double getArrival(double current)
 
 double getService(enum node_type type, int id)
 {
-	//TODO change this
-	SelectStream(id);
-	//printf("TYPE: %d\n", type);
+	SelectStream(servers[type][id].stream);
+	
 	switch (type) {
 	case TEMP:
 		return Exponential(TEMP_MEAN);
@@ -301,17 +354,27 @@ int simulate(int mode)
 	}
 
 	//Set starting servers
-	for(int i = 0; i < TEMP_NODE; i++) {
+	int current_stream = 0;
+
+	for(int i=0; i < MAX_TEMP; i++) {
 		servers[0][i].open = 1;
+		servers[0][i].stream = current_stream;
+		current_stream++;
 	}
-	for(int i = 0; i < CHECK_NODE; i++) {
+	for(int i = 0; i < MAX_CHECK; i++) {
 		servers[1][i].open = 1;
+		servers[1][i].stream = current_stream;
+		current_stream++;
 	}
-	for(int i = 0; i < SECURITY_NODE; i++) {
+	for(int i = 0; i < MAX_SECURITY; i++) {
 		servers[2][i].open = 1;
+		servers[2][i].stream = current_stream;
+		current_stream++;
 	}
-	for(int i = 0; i < DROP_OFF; i++) {
+	for(int i = 0; i < MAX_DROP_OFF; i++) {
 		servers[3][i].open = 1;
+		servers[3][i].stream = current_stream;
+		current_stream++;
 	}
 
 	int first_class_number = 0;
@@ -354,8 +417,6 @@ int simulate(int mode)
 
 			int destination = getDestination(TEMP, &dest_type);
 
-			printf("Arrived -> %d-%d\n", dest_type, destination);
-
 			enqueue(&servers[dest_type][destination].head,
 				&servers[dest_type][destination].tail, getPassenger(),
 				t.arrival);
@@ -396,7 +457,6 @@ int simulate(int mode)
 				
 				if (destination != -1) {
 					servers[dest_type][destination].number++;
-					printf("Completed temp -> %d-%d\n", dest_type, destination);
 
 					if (mode == 0 ||
 					    pass_type == FIRST_CLASS) {
@@ -442,7 +502,7 @@ int simulate(int mode)
 					servers[type][id].completion = INFINITY;
 
 				destination = getDestination(SECURITY, &dest_type);
-printf("Completed check-drop-off -> %d-%d\n", dest_type, destination);
+
 				servers[dest_type][destination].number++;
 				if (mode == 0 || pass_type == FIRST_CLASS) {
 					enqueue(&servers[dest_type][destination].head,

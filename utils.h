@@ -17,6 +17,7 @@ struct node {
 	struct passenger *head_second;
 	struct passenger *tail_second;
 	struct area area;
+	int stream;
 	double active_time;
 	int open;
 	int number;
