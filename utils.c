@@ -44,7 +44,7 @@ double minNode(struct node nodes[4][248], int *id, int *type)
 
 	for(int j = 0; j < 4; j++) {
 		int i = 0;
-		while (nodes[j][i].open) {
+		while (nodes[j][i].open && i < 248) {
 			minCompletion = min(minCompletion, nodes[j][i].completion);
 			if (nodes[j][i].completion == minCompletion) {
 				*id = i;
@@ -59,10 +59,8 @@ double minNode(struct node nodes[4][248], int *id, int *type)
 
 
 int minQueue(struct node nodes[4][248], int type){
-	int id;
+	int id = 0;
 	int i = 0;
-	
-	id = nodes[type][0].number;
 
 	//consider only open nodes
 	while(nodes[type][i].open && i < 248){

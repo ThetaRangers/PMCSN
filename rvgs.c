@@ -233,6 +233,8 @@ double Student(long n)
 }
 
 double TruncatedNormal(double m, double s, double a, double b) {
-	//TODO OK???
-	return Normal(m, s)/(cdfNormal(m, s, b) - cdfNormal(m, s, a));
+	double alpha = cdfNormal(m, s, a);
+	double beta = 1.0 - cdfNormal(m, s, b);
+	double u = Uniform(alpha, 1.0 - beta); // Ok boomer
+	return idfNormal(m, s, u);
 }
