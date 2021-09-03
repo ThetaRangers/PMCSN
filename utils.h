@@ -30,5 +30,6 @@ double min(double a, double c);
 enum passenger_type getPassenger();
 //double minNode(struct node *nodes, int len, int *id);
 double minNode(struct node nodes[4][248], int *id, int *type);
+int minQueue(struct node nodes[4][248], int type);
 
 #endif

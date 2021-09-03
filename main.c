@@ -172,7 +172,7 @@ void activate(int block) {
 	servers[block][i].open = 1;
 }
 
-int getDestination(enum node_type type, int *dest_type)
+/*int getDestination(enum node_type type, int *dest_type)
 {
 	double rand;
 	int active = 0;
@@ -223,6 +223,51 @@ int getDestination(enum node_type type, int *dest_type)
 		*dest_type = 2;
 		active = count_active(2);
 		return Equilikely(0, active - 1);
+	default:
+		return 0;
+	}
+}*/
+
+int getDestination(enum node_type type, int *dest_type)
+{
+	double rand;
+	int active = 0;
+	switch (type) {
+	case TEMP:
+		*dest_type = 0;
+		return minQueue(servers,0);
+	case CHECK:
+		SelectStream(252);
+		rand = Random();
+		if (rand < CHECK_PERC * (1 - FEVER_PERC)) {
+			normal++;
+
+			*dest_type = 1;
+			return minQueue(servers, 1);
+		} else if (rand <
+			   (CHECK_PERC + ONLINE_PERC) * (1 - FEVER_PERC)) {
+			SelectStream(249);
+			rand = Random();
+
+			if (rand < 0.4) {
+				dropoff++;
+
+				*dest_type = 3;
+				return minQueue(servers, 3);
+			} else {
+				online++;
+				
+				*dest_type = 2;
+				return minQueue(servers, 2);
+			}
+		} else {
+			febbra++;
+			*dest_type = -1;
+			return -1;
+		}
+	case SECURITY:
+		*dest_type = 2;
+		return minQueue(servers, 2);
 	default:
 		return 0;
 	}

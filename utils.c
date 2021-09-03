@@ -56,3 +56,21 @@ double minNode(struct node nodes[4][248], int *id, int *type)
 
 	return minCompletion;
 }
+
+
+int minQueue(struct node nodes[4][248], int type){
+	int id;
+	int i = 0;
+	
+	id = nodes[type][0].number;
+
+	//consider only open nodes
+	while(nodes[type][i].open && i < 248){
+		if(nodes[type][i].number < nodes[type][id].number)
+			id = i;
+		i++;
+	}
+
+	return id;
+
+}
