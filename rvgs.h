@@ -23,5 +23,7 @@ double Normal(double m, double s);
 double Lognormal(double a, double b);
 double Chisquare(long n);
 double Student(long n);
+double Hyperexponential(double m, double p);
+double TruncatedNormal(double m, double s, double a, double b);
 
 #endif

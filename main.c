@@ -19,7 +19,7 @@
 
 #define TEMP_NODE 5
 #define CHECK_NODE 20
-#define SECURITY_NODE 20
+#define SECURITY_NODE 30
 #define DROPOFF_ONLINE 3
 
 #define MAX_SERVERS 248
@@ -52,6 +52,8 @@
 #define SECURITY_MEAN 3
 #define DROPOFF_MEAN 1
 
+#define CHECK_PROB 0.8
+
 #define UTIL_THRESHOLD 0.4
 
 #define REPETITIONS 1000
@@ -73,12 +75,12 @@ int normal = 0;
 int current_temp = TEMP_NODE;
 int current_checkin = CHECK_NODE;
 int current_security = SECURITY_NODE;
-int current_dropoff = DROP_OFF;
+int current_dropoff = DROPOFF_ONLINE;
 
 //Mean for different times
-double mean_0_6 = ARRIVAL_MEAN * (1/0.10);
-double mean_6_18 = ARRIVAL_MEAN * (1/0.70);
-double mean_18_24 = ARRIVAL_MEAN * (1/0.20);
+double mean_0_6 = 1.2;
+double mean_6_18 = 0.15;
+double mean_18_24 = 1;
 
 int nodesNumber = TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROPOFF_ONLINE;
 
@@ -229,21 +231,24 @@ int getDestination(enum node_type type, int *dest_type)
 double getArrival(double current)
 {
 	SelectStream(254);
-	arrival += Exponential(ARRIVAL_MEAN);
-	//printf("Mean 0 6: %lf\n", mean_0_6);
-	return arrival;
-	//TODOOOOOOOO
 	double hour = ((int) current/60) % 24;
 
 	if(hour < 6) {
-		arrival += Exponential(mean_0_6 * (1.0/2 * 0.25));
+		arrival += Exponential(mean_0_6);
 	} else if(hour < 18) {
-		arrival += Exponential(mean_6_18 * (1.0/2 * 0.5));
+		arrival += Exponential(mean_6_18);
 	} else {
-		arrival += Exponential(mean_18_24 * (1.0/2 * 0.25));
+		arrival += Exponential(mean_18_24);
 	}
 
 	return (arrival);
+}
+
+double getArrivalStatic() {
+	SelectStream(254);
+	arrival += Exponential(ARRIVAL_MEAN);
+	
+	return arrival;
 }
 
 double getService(enum node_type type, int id)
@@ -254,9 +259,11 @@ double getService(enum node_type type, int id)
 	case TEMP:
 		return Exponential(TEMP_MEAN);
 	case CHECK:
-		return Exponential(CHECK_MEAN);
+		return Hyperexponential(CHECK_MEAN, CHECK_PROB);
 	case SECURITY:
-		return Exponential(SECURITY_MEAN);
+		//Truncated Normal
+		return TruncatedNormal(SECURITY_MEAN, 2, 0.5, 5);
+		//return Exponential(SECURITY_MEAN);
 	case DROP_OFF:
 		return Exponential(DROPOFF_MEAN);
 	default:
@@ -357,22 +364,26 @@ int simulate(int mode)
 	int current_stream = 0;
 
 	for(int i=0; i < MAX_TEMP; i++) {
-		servers[0][i].open = 1;
+		if (i < current_temp)
+			servers[0][i].open = 1;
 		servers[0][i].stream = current_stream;
 		current_stream++;
 	}
 	for(int i = 0; i < MAX_CHECK; i++) {
-		servers[1][i].open = 1;
+		if (i < current_checkin)
+			servers[1][i].open = 1;
 		servers[1][i].stream = current_stream;
 		current_stream++;
 	}
 	for(int i = 0; i < MAX_SECURITY; i++) {
-		servers[2][i].open = 1;
+		if (i < current_security)
+			servers[2][i].open = 1;
 		servers[2][i].stream = current_stream;
 		current_stream++;
 	}
 	for(int i = 0; i < MAX_DROP_OFF; i++) {
-		servers[3][i].open = 1;
+		if (i < current_dropoff)
+			servers[3][i].open = 1;
 		servers[3][i].stream = current_stream;
 		current_stream++;
 	}
@@ -420,7 +431,7 @@ int simulate(int mode)
 			enqueue(&servers[dest_type][destination].head,
 				&servers[dest_type][destination].tail, getPassenger(),
 				t.arrival);
-			t.arrival = getArrival(t.current);
+			t.arrival = getArrivalStatic();
 
 			servers[dest_type][destination].number++;
 
@@ -538,7 +549,7 @@ int simulate(int mode)
 					Normal(TIME_IN_AIRPORT, VARIANCE);
 				double response_time = (t.current - arrival);
 				//printf("RESPONSE TIME %lf\n", response_time);
-
+			
 				fprintf(st_file, "%lf, %lf, %ld\n", t.current,
 					response_time, number);
 

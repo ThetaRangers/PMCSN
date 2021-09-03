@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include "rngs.h"
 #include "rvgs.h"
+#include "rvms.h"
 
 long Bernoulli(double p)
 /* ========================================================
@@ -133,6 +134,16 @@ double Exponential(double m)
 	return (-m * log(1.0 - Random()));
 }
 
+double Hyperexponential(double m, double p) {
+	SelectStream(247);
+
+	if(Bernoulli(p)) {
+		return Exponential(m/(2*p));
+	} else {
+		return Exponential(m/(2*(1-p)));
+	}
+}
+
 double Erlang(long n, double b)
 /* ================================================== 
  * Returns an Erlang distributed positive real number.
@@ -219,4 +230,9 @@ double Student(long n)
  */
 {
 	return (Normal(0.0, 1.0) / sqrt(Chisquare(n) / n));
+}
+
+double TruncatedNormal(double m, double s, double a, double b) {
+	//TODO OK???
+	return Normal(m, s)/(cdfNormal(m, s, b) - cdfNormal(m, s, a));
 }
