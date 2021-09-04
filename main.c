@@ -118,7 +118,7 @@ int count_active(int block) {
 	return active;
 }
 
-void deactivate(int block) {
+void deactivate(int block, int count) {
 	int i = 0;
 	int max_servers;
 
@@ -142,11 +142,20 @@ void deactivate(int block) {
 
 	while (servers[block][i].open && i < max_servers)
 		i++;
-	if (i != 0)
-		servers[block][i - 1].open = 0;
+	
+	//deactivate last count servers
+	for(int j=0; j < count && i-j > 0; j++){
+		servers[block][i -j - 1].open = 0;
+	}
 }
 
-void activate(int block) {
+
+void deactivate_all(int block){
+	int count = count_active(block);
+	deactivate(block, count);
+}
+
+void activate(int block, int count) {
 	int i = 0;
 	int max_servers;
 
@@ -170,65 +179,33 @@ void activate(int block) {
 
 	while (servers[block][i].open && i < max_servers)
 		i++;
-	servers[block][i].open = 1;
-}
-/*
-int getDestination(enum node_type type, int *dest_type)
-{
-	double rand;
-	int active = 0;
-	switch (type) {
-	case TEMP:
-		SelectStream(253);
-		active = count_active(0);
-		*dest_type = 0;
-		return Equilikely(0, active - 1);
-	case CHECK:
-		SelectStream(252);
-		rand = Random();
-		if (rand < CHECK_PERC * (1 - FEVER_PERC)) {
-			normal++;
-			SelectStream(250);
-			active = count_active(1);
-			*dest_type = 1;
-
-			return Equilikely(0, active - 1);
-		} else if (rand <
-			   (CHECK_PERC + ONLINE_PERC) * (1 - FEVER_PERC)) {
-			SelectStream(249);
-			rand = Random();
-
-			if (rand < 0.4) {
-				dropoff++;
-				SelectStream(248);
-				*dest_type = 3;
-
-				active = count_active(3);
-
-				return Equilikely(0, active - 1);
-			} else {
-				online++;
-
-				*dest_type = 2;
-				active = count_active(2);
-				
-				return Equilikely(0, active - 1);
-			}
-		} else {
-			febbra++;
-			*dest_type = -1;
-			return -1;
-		}
-	case SECURITY:
-		SelectStream(251);
-		*dest_type = 2;
-		active = count_active(2);
-		return Equilikely(0, active - 1);
-	default:
-		return 0;
+	//activate last count servers
+	for(int j = 0; j < count && i+j < max_servers; j++){
+		servers[block][i+j].open = 1;
 	}
-}*/
+}
 
+
+void activate_all(int block){
+	
+	int count;
+	switch(block){
+	case 0:
+		count = MAX_TEMP;
+		break;
+	case 1:
+		count = MAX_CHECK;
+		break;
+	case 2:
+		count = MAX_SECURITY;
+		break;
+	case 3:
+		count = MAX_DROP_OFF;
+		break;
+	}
+
+	activate(block, count);
+}
 
  int getDestination(enum node_type type, int *dest_type)
 {
@@ -452,6 +429,7 @@ int simulate(int mode)
 	int dest_type;
 
 	while ((t.arrival < STOP)) {
+
 		double minCompletion = minNode(servers, &id, &type);
 		
 		t.next = min(t.arrival, minCompletion);
@@ -1274,7 +1252,7 @@ int repeat_finite_horizon(int mode)
 
 int main(int argc, char **argv)
 {
-	int mode;
+	/*int mode;
 
 	if (argc != 3) {
 		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite> (f finite, i infinite)\n");
@@ -1299,5 +1277,44 @@ int main(int argc, char **argv)
 	} else {
 		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite> (f finite, i infinite)\n");
 		return -1;
+	}*/
+
+
+	for(int j = 0; j < 4; j++) {
+		for (int i = 0; i < MAX_SERVERS; i++) {
+			servers[j][i].completion = INFINITY;
+			servers[j][i].head = NULL;
+			servers[j][i].tail = NULL;
+			servers[j][i].head_second = NULL;
+			servers[j][i].tail_second = NULL;
+			servers[j][i].id = i;
+			servers[j][i].number = 0;
+
+			servers[j][i].open = 0;
+
+			servers[j][i].area.node = 0;
+			servers[j][i].area.queue = 0;
+			servers[j][i].area.service = 0;
+		}
 	}
+
+	int type=0;
+
+	printf("Active on %d: %d\n",type, count_active(type));
+
+	activate(type,MAX_TEMP);
+
+	printf("Active on %d: %d\n",type, count_active(type));
+
+	deactivate_all(type);
+
+	printf("Active on %d: %d\n",type, count_active(type));
+
+	activate_all(type);
+
+	printf("Active on %d: %d\n",type, count_active(type));
+
+	activate(type, 2);
+
+	printf("Active on %d: %d\n",type, count_active(type));
 }
