@@ -144,20 +144,6 @@ double Hyperexponential(double m, double p) {
 	}
 }
 
-double CheckinDistribution(double m1, double m2, double p) {
-	SelectStream(247);
-	double result;
-
-	result = Exponential(m1);
-
-	if(Bernoulli(p)) {
-		return result;	
-	}
-
-	result += Exponential(m2);
-	return result;
-}
-
 double Erlang(long n, double b)
 /* ================================================== 
  * Returns an Erlang distributed positive real number.
@@ -252,4 +238,29 @@ double TruncatedNormal(double m, double s, double a, double b) {
 	double u = Uniform(alpha, 1.0 - beta); // Ok boomer
 	
 	return idfNormal(m, s, u);
+}
+
+double TruncatedExponential(double m, double a, double b) {
+	double alpha = cdfExponential(m, a);
+	double beta = 1.0 - cdfExponential(m, b);
+	double u = Uniform(alpha, 1.0 - beta);
+	
+	return idfExponential(m, u);
+}
+
+double CheckinDistribution(double m1, double m2, double p) {
+	SelectStream(247);
+	double result;
+
+	//result = TruncatedExponential(m1, 1, 20);
+	result = Exponential(m1);
+	
+	if(Bernoulli(p)) {
+		return result;	
+	} else {
+		//result += TruncatedExponential(m2, 1, 20);
+		result = Exponential(m2);
+	}
+
+	return result;
 }

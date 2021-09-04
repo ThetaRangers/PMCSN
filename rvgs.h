@@ -26,5 +26,6 @@ double Student(long n);
 double Hyperexponential(double m, double p);
 double TruncatedNormal(double m, double s, double a, double b);
 double CheckinDistribution(double m1, double m2, double p);
+double TruncatedExponential(double m, double a, double b);
 
 #endif
