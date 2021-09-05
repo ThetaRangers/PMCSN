@@ -47,7 +47,7 @@
 #define BATCH_SIZE 512
 #define ALFA 0.05
 
-#define ARRIVAL_MEAN 1
+#define ARRIVAL_MEAN 0.3
 #define TEMP_MEAN 0.2
 #define CHECK_MEAN 5
 #define CHECK_DROP_MEAN 2
@@ -348,7 +348,6 @@ int simulate(int mode)
 	node_population_file = fdopen(fd2, "w");
 
 	FILE* samples = fdopen(fd3, "w");
-	fprintf(samples, "SAMPLE\n");
 
 	double batch_position = 0;
 	double batches = 0;

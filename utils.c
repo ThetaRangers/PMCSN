@@ -14,7 +14,7 @@ double min(double a, double c)
 
 enum passenger_type getPassenger()
 {
-	long res = Bernoulli(0.3);
+	long res = Bernoulli(0.);
 
 	if (res == 1)
 		return FIRST_CLASS;
@@ -50,7 +50,6 @@ double minNode(struct node nodes[4][248], int *id, int *type)
 				*id = i;
 				*type = j;
 			}
-			i++;
 		}
 	}
 
