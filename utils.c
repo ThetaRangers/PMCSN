@@ -44,8 +44,7 @@ double minNode(struct node nodes[4][248], int *id, int *type)
 	*type = 0;
 
 	for(int j = 0; j < 4; j++) {
-		int i = 0;
-		while (nodes[j][i].open && i < 248) {
+		for (int i = 0; i < 248; i++) {
 			minCompletion = min(minCompletion, nodes[j][i].completion);
 			if (nodes[j][i].completion == minCompletion) {
 				*id = i;

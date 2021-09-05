@@ -35,7 +35,7 @@
 //Number of minutes in a month 2000euro/43200minutes 0.046 euro/minutes
 #define SERV_COST 0.046
 
-#define FEVER_PERC 0.1
+#define FEVER_PERC 0.01
 #define ONLINE_PERC 0.6
 #define CHECK_PERC 0.4
 #define DROPOFF_PERC 0.4
@@ -61,10 +61,10 @@
 #define STOP_FINITE 1440
 #define SAMPLE_INTERVAL 1
 
-int finite_temp_node[3] = {5, 5, 5};
-int finite_check_node[3] = {20, 20, 20};
-int finite_security_node[3] = {20, 20, 20};
-int finite_dropoff_node[3] = {3, 3, 3};
+int finite_temp_node[3] = {2, 5, 3};
+int finite_check_node[3] = {5, 20, 10};
+int finite_security_node[3] = {5, 20, 10};
+int finite_dropoff_node[3] = {1, 3, 2};
 
 FILE *st_file; //Service time
 FILE *node_population_file; //Node population
@@ -84,8 +84,8 @@ int current_security = SECURITY_NODE;
 int current_dropoff = DROPOFF_ONLINE;
 
 //Mean for different times
-double mean_0_6 = 1.2;
-double mean_6_18 = 0.15;
+double mean_0_6 = 1.5;
+double mean_6_18 = 0.3;
 double mean_18_24 = 1;
 
 int nodesNumber = TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROPOFF_ONLINE;
@@ -123,7 +123,7 @@ int count_active(int block) {
 	return active;
 }
 
-void deactivate(int block, int count) {
+void deactivate(int block, int count, double current_time) {
 	int i = 0;
 	int max_servers;
 
@@ -150,17 +150,22 @@ void deactivate(int block, int count) {
 	
 	//deactivate last count servers
 	for(int j=0; j < count && i-j > 0; j++){
+		if(servers[block][i -j - 1].open) {
+			servers[block][i -j - 1].active_time += current_time - servers[block][i -j - 1].opening_time;
+			//printf("%d-%d:%lf\n", block, i -j - 1 ,servers[block][i -j - 1].active_time);
+		}
+
 		servers[block][i -j - 1].open = 0;
 	}
 }
 
 
-void deactivate_all(int block){
+void deactivate_all(int block, double current_time){
 	int count = count_active(block);
-	deactivate(block, count);
+	deactivate(block, count, current_time);
 }
 
-void activate(int block, int count) {
+void activate(int block, int count, double current_time) {
 	int i = 0;
 	int max_servers;
 
@@ -187,10 +192,11 @@ void activate(int block, int count) {
 	//activate last count servers
 	for(int j = 0; j < count && i+j < max_servers; j++){
 		servers[block][i+j].open = 1;
+		servers[block][i+j].opening_time = current_time;
 	}
 }
 
-
+/*
 void activate_all(int block){
 	
 	int count;
@@ -210,11 +216,11 @@ void activate_all(int block){
 	}
 
 	activate(block, count);
-}
+}*/
 
-void change_servers(int block, int count){
-	deactivate_all(block);
-	activate(block, count);
+void change_servers(int block, int count, double current_time){
+	deactivate_all(block, current_time);
+	activate(block, count, current_time);
 }
 
  int getDestination(enum node_type type, int *dest_type)
@@ -296,8 +302,9 @@ double getService(enum node_type type, int id)
 		//x = Hyperexponential(CHECK_MEAN, CHECK_PROB);
 		//printf("AGAGA: %lf\n",x);
 		//return x;
-		x = TruncatedExponential(CHECK_MEAN, 1, 20);
-		//x = CheckinDistribution(CHECK_MEAN, CHECK_DROP_MEAN, CHECK_PROB);
+		//x = TruncatedExponential(CHECK_MEAN, 1, 20);
+		//x = Exponential(TEMP_MEAN);
+		x = CheckinDistribution(CHECK_MEAN, CHECK_DROP_MEAN, CHECK_PROB);
 		return x;
 	case SECURITY:
 		//Truncated Normal
@@ -833,7 +840,12 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 
 	long number = 0; /* Number in the network */
 	double ets = 0;
+	double ets1 = 0;
+	double ets2 = 0;
+
 	double completions = 0;
+	double completions1 = 0;
+	double completions2 = 0;
 
 	arrival = 0;
 	t.current = START; /* set the clock */
@@ -862,26 +874,34 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 	int current_stream = 0;
 
 	for(int i=0; i < MAX_TEMP; i++) {
-		if (i < n0[0])
+		if (i < n0[0]) {
 			servers[0][i].open = 1;
+			servers[0][i].opening_time = 0;
+		}
 		servers[0][i].stream = current_stream;
 		current_stream++;
 	}
 	for(int i = 0; i < MAX_CHECK; i++) {
-		if (i < n1[0])
+		if (i < n1[0]) {
 			servers[1][i].open = 1;
+			servers[1][i].opening_time = 0;
+		}
 		servers[1][i].stream = current_stream;
 		current_stream++;
 	}
 	for(int i = 0; i < MAX_SECURITY; i++) {
-		if (i < n2[0])
+		if (i < n2[0]) {
 			servers[2][i].open = 1;
+			servers[2][i].opening_time = 0;
+		}
 		servers[2][i].stream = current_stream;
 		current_stream++;
 	}
 	for(int i = 0; i < MAX_DROP_OFF; i++) {
-		if (i < n3[0])
+		if (i < n3[0]) {
 			servers[3][i].open = 1;
+			servers[3][i].opening_time = 0;
+		}
 		servers[3][i].stream = current_stream;
 		current_stream++;
 	}
@@ -909,6 +929,12 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 				servers[j][i].area.queue += (t.next - t.current) *
 						       (servers[j][i].number - 1);
 				servers[j][i].area.service += (t.next - t.current);
+
+				//TODO ok???
+				//If is closed but has still someone in the queue add active times
+				if(!servers[j][i].open) {
+					servers[j][i].active_time += (t.next - t.current);
+				}
 			}
 		}
 	}
@@ -942,16 +968,16 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 			switch (turn_change) {
 			case 360:
 				turn_change = 1080;
-				change_servers(0, n0[1]);
-				change_servers(1, n1[1]);
-				change_servers(2, n2[1]);
-				change_servers(3, n3[1]);
+				change_servers(0, n0[1], t.current);
+				change_servers(1, n1[1], t.current);
+				change_servers(2, n2[1], t.current);
+				change_servers(3, n3[1], t.current);
 				break;
 			case 1080:
-				change_servers(0, n0[2]);
-				change_servers(1, n1[2]);
-				change_servers(2, n2[2]);
-				change_servers(3, n3[2]);
+				change_servers(0, n0[2], t.current);
+				change_servers(1, n1[2], t.current);
+				change_servers(2, n2[2], t.current);
+				change_servers(3, n3[2], t.current);
 			default:
 				turn_change = INFINITY;
 				break;
@@ -1056,7 +1082,26 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 						&pass_type, &arrival);
 				}
 
+				double time_airport = 
+					Normal(TIME_IN_AIRPORT, VARIANCE);
 				double response_time = t.current - arrival;
+
+				double spending;
+				if(pass_type == FIRST_CLASS) {
+					ets1 += response_time;
+					completions1++;
+					spending = FIRST_CLASS_SPENDING;
+				} else {
+					ets2 += response_time;
+					completions2++;
+					spending = SECOND_CLASS_SPENDING;
+				}
+
+				double time_left = time_airport - response_time;
+				if (time_left > 0) {
+					income += (time_left / time_airport) *
+						  spending;
+				}
 			
 				ets += response_time;
 				completions++;
@@ -1076,6 +1121,16 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 	t.next = STOP_FINITE;
 
 	ets = ets/completions;
+	ets1 = ets1/completions1;
+	ets2 = ets2/completions2;
+
+	for(int j = 0; j < 4; j++) {
+		change_servers(j, 0, STOP_FINITE);
+
+		for(int i = 0; i < 248; i++) {
+			income -= SERV_COST * servers[j][i].active_time;
+		}
+	}
 
 	for(int j = 0; j < 4; j++) {
 		for (int i = 0; i < MAX_SERVERS; i++) {
@@ -1084,11 +1139,13 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 		}
 	}
 
-	printf("RESPONSE TIME: %lf\n", ets);
+	printf("RESPONSE TIME: %lf COMPLETIONS: %0.f\n", ets, completions);
+	printf("RESPONSE TIME 1: %lf COMPLETIONS: %0.f\n", ets1, completions1);
+	printf("RESPONSE TIME 2: %lf COMPLETIONS: %0.f\n", ets2, completions2);
+	printf("INCOME: %lf\n", income);
 
 	return ets;
 }
-
 
 int repeat_finite_horizon(int mode)
 {
@@ -1097,7 +1154,7 @@ int repeat_finite_horizon(int mode)
 	int *n2 = finite_security_node;
 	int *n3 = finite_dropoff_node;
 	
-	finite_horizon(mode, n0, n1,n2, n3);
+	finite_horizon(mode, n0, n1, n2, n3);
 
 	return 0;
 }
