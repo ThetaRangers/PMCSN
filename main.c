@@ -11,7 +11,8 @@
 
 //904914315
 //1434868289
-#define SEED 123456789
+//123456789 
+#define SEED 1434868289 
 
 #define START 0.0 /* initial time */
 #define STOP 20000.0 /* terminal (close the door) time */
@@ -46,7 +47,7 @@
 #define BATCH_SIZE 512
 #define ALFA 0.05
 
-#define ARRIVAL_MEAN 0.15
+#define ARRIVAL_MEAN 1
 #define TEMP_MEAN 0.2
 #define CHECK_MEAN 5
 #define CHECK_DROP_MEAN 2
@@ -335,13 +336,19 @@ int simulate(int mode)
 	int fd2 = open(node_population_filename, O_WRONLY | O_CREAT | O_TRUNC,
 		       0644);
 
-	if (fd1 == -1 || fd2 == -1) {
+	//TODO changename
+	int fd3 = open("infinite_samples.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+	if (fd1 == -1 || fd2 == -1 || fd3 == -1) {
 		perror("open");
 		exit(EXIT_FAILURE);
 	}
 
 	st_file = fdopen(fd1, "w");
 	node_population_file = fdopen(fd2, "w");
+
+	FILE* samples = fdopen(fd3, "w");
+	fprintf(samples, "SAMPLE\n");
 
 	double batch_position = 0;
 	double batches = 0;
@@ -678,6 +685,7 @@ int simulate(int mode)
 				tot_completions++;
 
 				double time_left = time_airport - response_time;
+				fprintf(samples, "%lf\n", response_time);
 				if (time_left > 0) {
 					income += (time_left / time_airport) *
 						  spending;
@@ -758,6 +766,7 @@ int simulate(int mode)
 
 	fclose(st_file);
 	fclose(node_population_file);
+	fclose(samples);
 
 	if (mode == 0) {
 		printf("ORIGINAL\n");
@@ -806,7 +815,7 @@ int simulate(int mode)
 	
 	printf("\nUTILIZATION:\n");
 	for(int j = 0; j < 4; j++) {
-	for (int i = 0; i < nodesNumber; i++) {
+	for (int i = 0; i < 20; i++) {
 		char type_string[20];
 
 		if (j == 0) {
@@ -818,9 +827,9 @@ int simulate(int mode)
 		} else if (j == 3) {
 			strcpy(type_string, "Dropoff");
 		}
-		printf("\t%s-%d......utilization: %lf, average population: %lf\n",
-		       type_string, i, servers[j][i].area.service / t.current,
-		       servers[j][i].area.node / t.current);
+		printf("\t%s-%d-Open: %d......utilization: %lf, average population: %lf, %d\n",
+		       type_string, i, servers[j][i].open, servers[j][i].area.service / t.current,
+		       servers[j][i].area.node / t.current, servers[j][i].number);
 		}
 	}
 
@@ -830,6 +839,15 @@ int simulate(int mode)
 double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 {
 	//struct node nodes[nodesNumber];
+	int fd1 = open("finite_horizon_response_time.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+	if (fd1 == -1) {
+		perror("open");
+		exit(EXIT_FAILURE);
+	}
+	st_file = fdopen(fd1, "w");
+
+	fprintf(st_file, "TIME,RESPONSETIME\n");
 
 	struct {
 		double arrival; /* next arrival time */
@@ -1085,6 +1103,8 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 				double time_airport = 
 					Normal(TIME_IN_AIRPORT, VARIANCE);
 				double response_time = t.current - arrival;
+				
+				fprintf(st_file, "%lf,%lf\n", t.current, response_time);
 
 				double spending;
 				if(pass_type == FIRST_CLASS) {
@@ -1139,12 +1159,14 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 		}
 	}
 
+	fclose(st_file);
+
 	printf("RESPONSE TIME: %lf COMPLETIONS: %0.f\n", ets, completions);
 	printf("RESPONSE TIME 1: %lf COMPLETIONS: %0.f\n", ets1, completions1);
 	printf("RESPONSE TIME 2: %lf COMPLETIONS: %0.f\n", ets2, completions2);
 	printf("INCOME: %lf\n", income);
 
-	return ets;
+	return income;
 }
 
 int repeat_finite_horizon(int mode)
@@ -1154,6 +1176,8 @@ int repeat_finite_horizon(int mode)
 	int *n2 = finite_security_node;
 	int *n3 = finite_dropoff_node;
 	
+	int max_income = 0;
+
 	finite_horizon(mode, n0, n1, n2, n3);
 
 	return 0;
