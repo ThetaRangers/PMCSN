@@ -74,6 +74,7 @@ FILE *node_population_file; //Node population
 
 double arrival = START;
 
+double cost = 0;
 double income = 0;
 double income_24 = 0;
 int febbra = 0;
@@ -837,7 +838,7 @@ int simulate(int mode)
 	return 0;
 }
 
-double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
+void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double final_income[3], double total_income[3], double costs[3])
 {
 	//struct node nodes[nodesNumber];
 	int fd1 = open("finite_horizon_response_time.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -865,6 +866,8 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 	double completions = 0;
 	double completions1 = 0;
 	double completions2 = 0;
+
+	double prev_active_time[4][248]; 
 
 	arrival = 0;
 	t.current = START; /* set the clock */
@@ -991,12 +994,34 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 				change_servers(1, n1[1], t.current);
 				change_servers(2, n2[1], t.current);
 				change_servers(3, n3[1], t.current);
+				total_income[0] = income;
+				for(int j = 0; j < 4; j++) {
+					for(int i = 0; i < 248; i++) {
+						cost += SERV_COST * servers[j][i].active_time;
+						prev_active_time[j][i] = servers[j][i].active_time;
+					}
+				}
+				costs[0] = cost;
+				final_income[0] = income-cost;
+				income = 0;
+				cost = 0;
 				break;
 			case 1080:
 				change_servers(0, n0[2], t.current);
 				change_servers(1, n1[2], t.current);
 				change_servers(2, n2[2], t.current);
 				change_servers(3, n3[2], t.current);
+				total_income[1] = income;
+				for(int j = 0; j < 4; j++) {
+					for(int i = 0; i < 248; i++) {
+						cost += SERV_COST * ( servers[j][i].active_time - prev_active_time[j][i] );
+						prev_active_time[j][i] = servers[j][i].active_time;
+					}
+				}
+				costs[1] = cost;
+				final_income[1] = income-cost;
+				income = 0;
+				cost = 0;
 			default:
 				turn_change = INFINITY;
 				break;
@@ -1145,13 +1170,20 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 	ets1 = ets1/completions1;
 	ets2 = ets2/completions2;
 
+	total_income[2] = income;
 	for(int j = 0; j < 4; j++) {
 		change_servers(j, 0, STOP_FINITE);
-
 		for(int i = 0; i < 248; i++) {
-			income -= SERV_COST * servers[j][i].active_time;
+			cost += SERV_COST * ( servers[j][i].active_time - prev_active_time[j][i]);
 		}
 	}
+	costs[2] = cost;
+	final_income[2] = income-cost;
+	
+
+	//cost and income are global reset for next repetition
+	cost = 0;
+	income = 0;
 
 	for(int j = 0; j < 4; j++) {
 		for (int i = 0; i < MAX_SERVERS; i++) {
@@ -1165,9 +1197,8 @@ double finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3])
 	printf("RESPONSE TIME: %lf COMPLETIONS: %0.f\n", ets, completions);
 	printf("RESPONSE TIME 1: %lf COMPLETIONS: %0.f\n", ets1, completions1);
 	printf("RESPONSE TIME 2: %lf COMPLETIONS: %0.f\n", ets2, completions2);
-	printf("INCOME: %lf\n", income);
+	//printf("INCOME: %lf\n", income);
 
-	return income;
 }
 
 int repeat_finite_horizon(int mode)
@@ -1179,7 +1210,34 @@ int repeat_finite_horizon(int mode)
 	
 	int max_income = 0;
 
-	finite_horizon(mode, n0, n1, n2, n3);
+	double *total_income = malloc(sizeof(double)*3);
+	double *final_income = malloc(sizeof(double)*3);
+	double *costs = malloc(sizeof(double)*3);
+
+	finite_horizon(mode, n0, n1, n2, n3, final_income, total_income, costs);
+
+	double income_sum = 0;
+	double cost_sum = 0;
+	double earning_sum = 0; 
+
+	for(int i=0; i < 3; i++){
+		printf("Phase %d->income: %lf costs: %lf earning: %lf ", i+1, total_income[i], costs[i], final_income[i]);
+		if(final_income[i] == total_income[i]-costs[i]){
+			printf("check OK\n");
+		}else{
+			printf("check ERROR it should be %lf\n", total_income[i]-costs[i]);
+		}
+		income_sum+= total_income[i];
+		cost_sum+= costs[i];
+		earning_sum+= final_income[i];
+	}
+
+	printf("TOTAL->income: %lf costs: %lf earning: %lf ",income_sum, cost_sum, earning_sum);
+	if(earning_sum == income_sum-cost_sum){
+		printf("check OK\n");
+	}else{
+		printf("check ERROR it should be %lf but it is %lf\n",income_sum-cost_sum, earning_sum);
+	}
 
 	return 0;
 }
