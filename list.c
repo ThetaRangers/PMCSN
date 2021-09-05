@@ -9,7 +9,7 @@
 	} while (0)
 
 void enqueue(struct passenger **head, struct passenger **tail,
-	     enum passenger_type type, double arrival)
+	     enum passenger_type type, double arrival, int shengen)
 {
 	struct passenger *node =
 		(struct passenger *)malloc(sizeof(struct passenger));
@@ -31,7 +31,7 @@ void enqueue(struct passenger **head, struct passenger **tail,
 }
 
 void dequeue(struct passenger **head, struct passenger **tail,
-	     enum passenger_type *type, double *arrival)
+	     enum passenger_type *type, double *arrival, int *shengen)
 {
 	struct passenger *node = *head;
 
@@ -42,7 +42,8 @@ void dequeue(struct passenger **head, struct passenger **tail,
 
 	*arrival = node->arrival;
 	*type = node->type;
-	;
+	*shengen = node -> shengen;
+	
 	free(node);
 }
 
