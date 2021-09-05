@@ -44,7 +44,7 @@
 #define FIRST_CLASS_SPENDING 50
 #define SECOND_CLASS_SPENDING 20
 
-#define BATCH_SIZE 512
+#define BATCH_SIZE 4096
 #define ALFA 0.05
 
 #define ARRIVAL_MEAN 0.3
@@ -61,6 +61,8 @@
 #define REPETITIONS 1
 #define STOP_FINITE 1440
 #define SAMPLE_INTERVAL 1
+
+#define N 65536
 
 int finite_temp_node[3] = {2, 5, 3};
 int finite_check_node[3] = {5, 20, 10};
@@ -453,7 +455,7 @@ int simulate(int mode)
 	int type;
 	int dest_type;
 
-	while ((t.arrival < STOP)) {
+	while (tot_completions < N) {
 
 		double minCompletion = minNode(servers, &id, &type);
 		

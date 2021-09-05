@@ -14,7 +14,7 @@ double min(double a, double c)
 
 enum passenger_type getPassenger()
 {
-	long res = Bernoulli(0.);
+	long res = Bernoulli(0.3);
 
 	if (res == 1)
 		return FIRST_CLASS;
