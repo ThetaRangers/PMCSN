@@ -252,14 +252,16 @@ double CheckinDistribution(double m1, double m2, double p) {
 	SelectStream(247);
 	double result;
 
-	//result = TruncatedExponential(m1, 1, 20);
-	result = Exponential(m1);
+	result = TruncatedExponential(m1, 1, 20);
+	//result = Exponential(m1);
 	
-	if(Bernoulli(p)) {
+	if(Bernoulli(1-p)) {
+		printf("result1: %lf\n", result);
 		return result;	
 	} else {
-		//result += TruncatedExponential(m2, 1, 20);
-		result = Exponential(m2);
+		result += TruncatedExponential(m2, 1, 20);
+		//result += Exponential(m2);
+		printf("result2: %lf\n", result);
 	}
 
 	return result;

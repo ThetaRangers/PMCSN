@@ -15,20 +15,20 @@
 #define SEED 1434868289 
 
 #define START 0.0 /* initial time */
-#define STOP 20000.0 /* terminal (close the door) time */
+#define STOP 10000.0 /* terminal (close the door) time */
 //#define INFINITY (100.0 * STOP) /* must be much larger than STOP  */
 
-#define TEMP_NODE 5
-#define CHECK_NODE 20
-#define SECURITY_NODE 20
-#define DROPOFF_ONLINE 3
+#define TEMP_NODE 10
+#define CHECK_NODE 50
+#define SECURITY_NODE 50
+#define DROPOFF_ONLINE 10
 
 #define MAX_SERVERS 248
 
-#define MAX_TEMP 10
-#define MAX_CHECK 100
-#define MAX_SECURITY 100
-#define MAX_DROP_OFF 10
+#define MAX_TEMP 5
+#define MAX_CHECK 30
+#define MAX_SECURITY 30
+#define MAX_DROP_OFF 5
 
 #define TIME_IN_AIRPORT 180
 #define VARIANCE 20
@@ -44,10 +44,11 @@
 #define FIRST_CLASS_SPENDING 50
 #define SECOND_CLASS_SPENDING 20
 
-#define BATCH_SIZE 4096
+#define BATCH_SIZE 1024
 #define ALFA 0.05
 
-#define ARRIVAL_MEAN 0.3
+#define ARRIVAL_MEAN 0.5
+
 #define TEMP_MEAN 0.2
 #define CHECK_MEAN 5
 #define CHECK_DROP_MEAN 2
@@ -58,10 +59,10 @@
 
 #define UTIL_THRESHOLD 0.4
 
-#define REPETITIONS 1
 #define STOP_FINITE 1440
 #define SAMPLE_INTERVAL 1
 
+//65536
 #define N 65536
 
 int finite_temp_node[3] = {2, 5, 3};
@@ -82,17 +83,12 @@ int online = 0;
 int dropoff = 0;
 int normal = 0;
 
-int current_temp = TEMP_NODE;
-int current_checkin = CHECK_NODE;
-int current_security = SECURITY_NODE;
-int current_dropoff = DROPOFF_ONLINE;
-
 //Mean for different times
-double mean_0_6 = 1.5;
-double mean_6_18 = 0.3;
-double mean_18_24 = 1;
+double arrival_mean = ARRIVAL_MEAN;
 
-int nodesNumber = TEMP_NODE + CHECK_NODE + SECURITY_NODE + DROPOFF_ONLINE;
+double mean_0_6 = 0.5;
+double mean_6_18 = 0.2;
+double mean_18_24 = 0.3;
 
 struct node servers[4][MAX_SERVERS];
 
@@ -162,7 +158,6 @@ void deactivate(int block, int count, double current_time) {
 		servers[block][i -j - 1].open = 0;
 	}
 }
-
 
 void deactivate_all(int block, double current_time){
 	int count = count_active(block);
@@ -289,7 +284,7 @@ double getArrival(double current)
 
 double getArrivalStatic() {
 	SelectStream(254);
-	arrival += Exponential(ARRIVAL_MEAN);
+	arrival += Exponential(arrival_mean);
 	
 	return arrival;
 }
@@ -306,9 +301,9 @@ double getService(enum node_type type, int id)
 		//x = Hyperexponential(CHECK_MEAN, CHECK_PROB);
 		//printf("AGAGA: %lf\n",x);
 		//return x;
-		//x = TruncatedExponential(CHECK_MEAN, 1, 20);
+		x = TruncatedExponential(CHECK_MEAN, 1, 20);
 		//x = Exponential(TEMP_MEAN);
-		x = CheckinDistribution(CHECK_MEAN, CHECK_DROP_MEAN, CHECK_PROB);
+		//x = CheckinDistribution(CHECK_MEAN, CHECK_DROP_MEAN, DROPOFF_PERC);
 		return x;
 	case SECURITY:
 		//Truncated Normal
@@ -321,11 +316,16 @@ double getService(enum node_type type, int id)
 	}
 }
 
-int simulate(int mode)
+int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *inc, double ets[2], double ets1[2], double ets2[2])
 {
 	char response_filename[30] = "";
 	char node_population_filename[30] = "";
+	int nodesNumber = n0 + n1 + n2 + n3;
+	cost = 0;
+	income = 0;
+	arrival = 0;
 
+	/*
 	if (mode == 0) {
 		strcpy(response_filename, "response.csv");
 		strcpy(node_population_filename, "node_population.csv");
@@ -340,7 +340,6 @@ int simulate(int mode)
 		       0644);
 
 	//TODO changename
-	int fd3 = open("infinite_samples.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
 	if (fd1 == -1 || fd2 == -1 || fd3 == -1) {
 		perror("open");
@@ -350,7 +349,15 @@ int simulate(int mode)
 	st_file = fdopen(fd1, "w");
 	node_population_file = fdopen(fd2, "w");
 
-	FILE* samples = fdopen(fd3, "w");
+	
+	*/
+	int fd3;
+	FILE* samples;
+
+	if(statistics) {
+	 fd3 = open("infinite_samples.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	 samples = fdopen(fd3, "w");
+	}
 
 	double batch_position = 0;
 	double batches = 0;
@@ -374,15 +381,14 @@ int simulate(int mode)
 	double first_class_variance = 0;
 	double first_class_stdev;
 
+	/*
 	fprintf(st_file, "TIME, RESPONSE, POPULATION\n");
 	fprintf(node_population_file, "TIME, ID, POPULATION\n");
 
 	if (st_file == NULL || node_population_file == NULL) {
 		perror("fdopen");
 		exit(EXIT_FAILURE);
-	}
-
-	//struct node nodes[nodesNumber];
+	}*/
 
 	struct {
 		double arrival; /* next arrival time */
@@ -394,7 +400,7 @@ int simulate(int mode)
 	long number = 0; /* Number in the network */
 
 	t.current = START; /* set the clock */
-	t.arrival = getArrival(t.current); /* schedule the first arrival */
+	t.arrival = getArrivalStatic(); /* schedule the first arrival */
 
 	//Initialize nodes
 	for(int j = 0; j < 4; j++) {
@@ -418,27 +424,23 @@ int simulate(int mode)
 	//Set starting servers
 	int current_stream = 0;
 
-	for(int i=0; i < MAX_TEMP; i++) {
-		if (i < current_temp)
-			servers[0][i].open = 1;
+	for(int i=0; i < n0; i++) {
+		servers[0][i].open = 1;
 		servers[0][i].stream = current_stream;
 		current_stream++;
 	}
-	for(int i = 0; i < MAX_CHECK; i++) {
-		if (i < current_checkin)
-			servers[1][i].open = 1;
+	for(int i = 0; i < n1; i++) {
+		servers[1][i].open = 1;
 		servers[1][i].stream = current_stream;
 		current_stream++;
 	}
-	for(int i = 0; i < MAX_SECURITY; i++) {
-		if (i < current_security)
-			servers[2][i].open = 1;
+	for(int i = 0; i < n2; i++) {
+		servers[2][i].open = 1;
 		servers[2][i].stream = current_stream;
 		current_stream++;
 	}
-	for(int i = 0; i < MAX_DROP_OFF; i++) {
-		if (i < current_dropoff)
-			servers[3][i].open = 1;
+	for(int i = 0; i < n3; i++) {
+		servers[3][i].open = 1;
 		servers[3][i].stream = current_stream;
 		current_stream++;
 	}
@@ -456,12 +458,13 @@ int simulate(int mode)
 	int type;
 	int dest_type;
 
-	while (tot_completions < N) {
-
+	while ((statistics && tot_completions < N) || (!statistics && t.arrival < STOP)) {
+	//while (tot_completions < N) {
 		double minCompletion = minNode(servers, &id, &type);
 		
 		t.next = min(t.arrival, minCompletion);
 
+		if(statistics) {
 		for(int j = 0; j < 4; j++) {
 			for (int i = 0; i < nodesNumber; i++) {
 				if (servers[j][i].number > 0) { // update integrals
@@ -472,6 +475,7 @@ int simulate(int mode)
 					servers[j][i].area.service += (t.next - t.current);
 				}
 			}
+		}
 		}
 
 		t.current = t.next;
@@ -489,11 +493,6 @@ int simulate(int mode)
 
 			servers[dest_type][destination].number++;
 
-			if (t.arrival > STOP) {
-				t.last = t.current;
-				t.arrival = INFINITY;
-			}
-
 			if (servers[dest_type][destination].number == 1)
 				servers[dest_type][destination].completion =
 					t.current +
@@ -503,7 +502,7 @@ int simulate(int mode)
 			double arrival;
 			int destination = 0;
 			enum passenger_type pass_type;
-			//enum node_type completion_type = servers[type][id].type;
+
 			servers[type][id].number--;
 
 			switch (type) {
@@ -602,18 +601,15 @@ int simulate(int mode)
 				double time_airport =
 					Normal(TIME_IN_AIRPORT, VARIANCE);
 				double response_time = (t.current - arrival);
-				//printf("RESPONSE TIME %lf\n", response_time);
-			
-				fprintf(st_file, "%lf, %lf, %ld\n", t.current,
-					response_time, number);
+				int spending;
 
+				if(statistics) {
 				//Welford
 				batch_position++;
 				double diff = response_time - batch_mean;
 				batch_mean += diff / batch_position;
 
 				//Wellford for second class
-				int spending;
 				if (pass_type == SECOND_CLASS) {
 					batch_position_second_class++;
 					diff = response_time -
@@ -639,8 +635,6 @@ int simulate(int mode)
 						batch_position_second_class = 0;
 						batch_second_class_mean = 0;
 					}
-
-					spending = SECOND_CLASS_SPENDING;
 					second_class_number++;
 				} else {
 					batch_position_first_class++;
@@ -667,8 +661,6 @@ int simulate(int mode)
 						batch_position_first_class = 0;
 						batch_first_class_mean = 0;
 					}
-
-					spending = FIRST_CLASS_SPENDING;
 					first_class_number++;
 				}
 
@@ -683,21 +675,24 @@ int simulate(int mode)
 					batch_position = 0;
 					batch_mean = 0;
 				}
+				}
+
+				if(pass_type == FIRST_CLASS) {
+					spending = FIRST_CLASS_SPENDING;
+				} else {
+					spending = SECOND_CLASS_SPENDING;
+				}
 
 				tot_completions++;
 
 				double time_left = time_airport - response_time;
-				fprintf(samples, "%lf\n", response_time);
+				if(statistics) fprintf(samples, "%lf\n", response_time);
+
 				if (time_left > 0) {
 					income += (time_left / time_airport) *
 						  spending;
-					if (t.current > STOP - 1440 &&
-					    t.current < STOP) {
-						income_24 += (time_left /
-							      time_airport) *
-							     spending;
-					}
 				}
+				
 				if (servers[type][id].number > 0)
 					servers[type][id].completion =
 						t.current +
@@ -708,8 +703,13 @@ int simulate(int mode)
 				break;
 			}
 
-			fprintf(node_population_file, "%lf, %d, %d\n",
-				t.current, id, servers[type][id].number);
+			//fprintf(node_population_file, "%lf, %d, %d\n",t.current, id, servers[type][id].number);
+		}
+	}
+
+	for(int j = 0; j < 4; j++) {
+		for(int i = 0; i < 248; i++) {
+			cost += SERV_COST * t.current;
 		}
 	}
 
@@ -720,6 +720,7 @@ int simulate(int mode)
 		}
 	}
 
+	if(statistics) {
 	// Last Welford iteration
 	batches++;
 	double diff = batch_mean - mean;
@@ -762,14 +763,28 @@ int simulate(int mode)
 	double second_class_endpoint = t_student_second_class *
 				       second_class_stdev /
 				       sqrt(batches_second_class - 1);
+	
+	
+	ets[0] = mean;
+	ets[1] = endpoint;
 
-	income -= t.current * SERV_COST * (nodesNumber);
-	income_24 -= 1440 * SERV_COST * (nodesNumber);
+	ets1[0] = first_class_mean;
+	ets1[1] = first_class_endpoint;
 
+	ets2[0] = second_class_mean;
+	ets2[1] = second_class_endpoint;
+
+	fclose(samples);
+	}
+
+	income -= cost;
+	*inc = income;
+
+	/*
 	fclose(st_file);
 	fclose(node_population_file);
-	fclose(samples);
-
+	*/
+	/*
 	if (mode == 0) {
 		printf("ORIGINAL\n");
 	} else {
@@ -786,8 +801,7 @@ int simulate(int mode)
 	printf("Dropoff................ %d\n", dropoff);
 
 	printf("\nINCOME:\n");
-	printf("Income for %.1f hours. %lf\n", STOP / 60.0, income);
-	printf("Income 24 hours........ %lf\n", income_24);
+	printf("Income for %.1f hours. %lf\n", t.current / 60.0, income);
 
 	printf("\nRESPONSE TIME:\n");
 	printf("Batch size............. %d\n", BATCH_SIZE);
@@ -813,8 +827,9 @@ int simulate(int mode)
 	printf("Confidence Interval: (%lf, %lf)\n",
 	       second_class_mean - second_class_endpoint,
 	       second_class_mean + second_class_endpoint);
+	*/
 
-	
+	/*
 	printf("\nUTILIZATION:\n");
 	for(int j = 0; j < 4; j++) {
 	for (int i = 0; i < 20; i++) {
@@ -833,14 +848,27 @@ int simulate(int mode)
 		       type_string, i, servers[j][i].open, servers[j][i].area.service / t.current,
 		       servers[j][i].area.node / t.current, servers[j][i].number);
 		}
-	}
+	}*/
+
+	return 0;
+}
+
+int infinite_horizon(int mode)
+{
+	double income;
+
+	double ets[2];
+	double ets1[2];
+	double ets2[2];
+	
+	simulate(1, mode, 2, 19, 29, 4, &income, ets, ets1, ets2);
+	printf("INCOME: %lf\n",income);
 
 	return 0;
 }
 
 void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double final_income[3], double total_income[3], double costs[3])
 {
-	//struct node nodes[nodesNumber];
 	int fd1 = open("finite_horizon_response_time.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
 	if (fd1 == -1) {
@@ -944,7 +972,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 		t.next = min(t.next, turn_change);
 
 	for(int j = 0; j < 4; j++) {
-		for (int i = 0; i < nodesNumber; i++) {
+		for (int i = 0; i < 248; i++) {
 			if (servers[j][i].number > 0) { // update integrals
 				servers[j][i].area.node +=
 					(t.next - t.current) * servers[j][i].number;
@@ -1197,60 +1225,95 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 	printf("RESPONSE TIME: %lf COMPLETIONS: %0.f\n", ets, completions);
 	printf("RESPONSE TIME 1: %lf COMPLETIONS: %0.f\n", ets1, completions1);
 	printf("RESPONSE TIME 2: %lf COMPLETIONS: %0.f\n", ets2, completions2);
-	//printf("INCOME: %lf\n", income);
-
 }
 
-int repeat_finite_horizon(int mode)
+int repeat_infinite_horizon(int mode)
 {
+	double max_income = -INFINITY;
+	int opt_t = 0;
+	int opt_c = 0;
+	int opt_s = 0;
+	int opt_d = 0;
+
+	double temp_income;
+	double ets[2];
+	double ets1[2];
+	double ets2[2];
+
+	double standard_max;
+	double improved_max;
+	
+	for(int m = 0; m < 2; m++) {
+		printf("Mode %d\n", m);
+
+		for(int t = 1; t < MAX_TEMP; t++) {
+			printf("T: %d\n", t);
+			for(int c = 1; c < MAX_CHECK; c++) {
+				printf("C: %d\n", c);
+				for(int s = 1; s < MAX_SECURITY; s++) {
+					for(int d = 1; d < MAX_DROP_OFF; d++) {
+						income = 0;
+
+						PlantSeeds(SEED);
+						simulate(0, m, t, c, s, d, &temp_income, ets, ets1, ets2);
+						//printf("Income %d-%d-%d-%d: %lf\n", t,c,s,d,temp_income);
+						if(temp_income > max_income) {
+							max_income = temp_income;
+							opt_t = t;
+							opt_c = c;
+							opt_s = s;
+							opt_d = d;
+
+							//printf("New Optimum:%d-%d-%d-%d %lf", opt_t, opt_c, opt_s, opt_d, max_income);
+						}
+					}
+				}
+			}
+		}
+
+		printf("OPTIMUM mode:%d for %d-%d-%d-%d: with %lf\n", mode, opt_t, opt_c, opt_s, opt_d, max_income);
+
+		max_income = 0;
+	}
+	
+	return 0;
+}
+
+int finite_horizon_single(int mode) {
 	int *n0 = finite_temp_node;
 	int *n1 = finite_check_node;
 	int *n2 = finite_security_node;
 	int *n3 = finite_dropoff_node;
-	
+
 	int max_income = 0;
 
-	double *total_income = malloc(sizeof(double)*3);
-	double *final_income = malloc(sizeof(double)*3);
-	double *costs = malloc(sizeof(double)*3);
+	double total_income[3];
+	double final_income[3];
+	double costs[3];
 
 	finite_horizon(mode, n0, n1, n2, n3, final_income, total_income, costs);
 
 	double income_sum = 0;
 	double cost_sum = 0;
-	double earning_sum = 0; 
+	double earning_sum = 0;
 
 	for(int i=0; i < 3; i++){
-		printf("Phase %d->income: %lf costs: %lf earning: %lf ", i+1, total_income[i], costs[i], final_income[i]);
-		if(final_income[i] == total_income[i]-costs[i]){
-			printf("check OK\n");
-		}else{
-			printf("check ERROR it should be %lf\n", total_income[i]-costs[i]);
-		}
+		printf("Phase %d->income: %lf costs: %lf earning: %lf \n", i+1, total_income[i], costs[i], final_income[i]);
+	
 		income_sum+= total_income[i];
 		cost_sum+= costs[i];
 		earning_sum+= final_income[i];
 	}
 
-	printf("TOTAL->income: %lf costs: %lf earning: %lf ",income_sum, cost_sum, earning_sum);
-	if(earning_sum == income_sum-cost_sum){
-		printf("check OK\n");
-	}else{
-		printf("check ERROR it should be %lf but it is %lf\n",income_sum-cost_sum, earning_sum);
-	}
+	printf("TOTAL->income: %lf costs: %lf earning: %lf \n",income_sum, cost_sum, earning_sum);
 
 	return 0;
+
 }
 
 int main(int argc, char **argv)
 {
 	int mode;
-
-	/*
-	for(int i = 0; i < 500; i++) {
-		printf("%lf\n", TruncatedExponential(CHECK_MEAN, 1, 20));
-		printf("%lf\n", CheckinDistribution(CHECK_MEAN, CHECK_MEAN * 2, 0.80));
-	}*/
 
 	if (argc != 3) {
 		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite> (f finite, i infinite)\n");
@@ -1264,16 +1327,18 @@ int main(int argc, char **argv)
 	} else if (!strcmp(argv[1], "i")) {
 		mode = 1;
 	} else {
-		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite> (f finite, i infinite)\n");
+		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite-single finite> (f finite, i infinite, s single)\n");
 		return -1;
 	}
 
-	if (!strcmp(argv[2], "f")) {
-		return repeat_finite_horizon(mode);
+	if (!strcmp(argv[2], "r")) {
+		return repeat_infinite_horizon(mode);
 	} else if (!strcmp(argv[2], "i")) {
-		return simulate(mode);
+		return infinite_horizon(mode);
+	} else if (!strcmp(argv[2], "f")) {
+		return finite_horizon_single(mode);
 	} else {
-		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite> (f finite, i infinite)\n");
+		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite-single finite> (f finite, i infinite, s single)\n");
 		return -1;
 	}
 }

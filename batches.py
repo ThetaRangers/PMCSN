@@ -1,6 +1,6 @@
 import pandas as pd
 
-b = 4096
+b = 1024
 j_batches = 1
 j = 1
 
@@ -58,7 +58,7 @@ for i in range(0,len(batches) - j_batches):
 
 autocorrelation_batches = autocorrelation_batches/(n-j_batches)
 
-print(f"\nBatch size: {b} K: {n/b}")
+print(f"\nBatch size: {b} K: {len(batches)}")
 print(f"Batche mean: {sample_mean_batches}")
 print(f"Autocorrelation batches with lag {j_batches}: {autocorrelation_batches}")
 
