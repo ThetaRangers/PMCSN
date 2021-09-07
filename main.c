@@ -18,10 +18,10 @@
 #define STOP 10000.0 /* terminal (close the door) time */
 //#define INFINITY (100.0 * STOP) /* must be much larger than STOP  */
 
-#define TEMP_NODE 10
-#define CHECK_NODE 50
-#define SECURITY_NODE 50
-#define DROPOFF_ONLINE 10
+#define TEMP_NODE 3
+#define CHECK_NODE 20
+#define SECURITY_NODE 20
+#define DROPOFF_ONLINE 3
 
 #define MAX_SERVERS 248
 
@@ -72,7 +72,7 @@
 
 int finite_temp_node[3] = {10, 10, 10};
 int finite_check_node[3] = {25, 25, 25};
-int finite_security_node[3] = {20, 20, 20};
+int finite_security_node[3] = {15, 20, 20};
 int finite_dropoff_node[3] = {10, 10, 10};
 
 FILE *st_file; //Service time
@@ -325,8 +325,9 @@ double getService(enum node_type type, int id)
 
 int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *inc, double ets[2], double ets1[2], double ets2[2])
 {
+	/*
 	char response_filename[30] = "";
-	char node_population_filename[30] = "";
+	char node_population_filename[30] = "";*/
 	int nodesNumber = n0 + n1 + n2 + n3;
 	cost = 0;
 	income = 0;
@@ -359,7 +360,7 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 	
 	*/
 	int fd3;
-	FILE* samples;
+	FILE* samples = NULL;
 
 	if(statistics) {
 	 fd3 = open("infinite_samples.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -455,11 +456,6 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 	int first_class_number = 0;
 	int second_class_number = 0;
 	int tot_arrivals = 0;
-
-	double util_temp = 0;
-	double util_check = 0;
-	double util_security = 0;
-	double util_dropoff = 0;
 
 	int id;
 	int type;
@@ -881,14 +877,15 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 
 int infinite_horizon(int mode)
 {
-	double income;
+	double inc;
+	cost = 0;
 
 	double ets[2];
 	double ets1[2];
 	double ets2[2];
 	
-	simulate(1, mode, TEMP_NODE, CHECK_NODE, SECURITY_NODE, DROPOFF_ONLINE, &income, ets, ets1, ets2);
-	printf("INCOME: %lf\n",income);
+	simulate(1, mode, TEMP_NODE, CHECK_NODE, SECURITY_NODE, DROPOFF_ONLINE, &inc, ets, ets1, ets2);
+	printf("INCOME: %lf\n",inc);
 
 	return 0;
 }
@@ -988,9 +985,6 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 	int type;
 	int dest_type;
 
-	double index = 0;
-
-	//TODO changethis
 	int turn_change = 360;
 
 	while ((t.arrival < STOP_FINITE)) {
@@ -1082,8 +1076,10 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 				final_income[1] = income-cost;
 				income = 0;
 				cost = 0;
+				turn_change = 10 * STOP_FINITE;
+				break;
 			default:
-				turn_change = INFINITY;
+				turn_change = 10 * STOP_FINITE;
 				break;
 			}
 			
@@ -1276,7 +1272,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 	printf("RESPONSE TIME 2: %lf COMPLETIONS: %0.f\n", ets2, completions2);
 }
 
-int repeat_infinite_horizon(int mode)
+int repeat_infinite_horizon()
 {
 	double max_income = -INFINITY;
 	int opt_t = 0;
@@ -1288,9 +1284,6 @@ int repeat_infinite_horizon(int mode)
 	double ets[2];
 	double ets1[2];
 	double ets2[2];
-
-	double standard_max;
-	double improved_max;
 	
 	for(int m = 0; m < 2; m++) {
 		printf("Mode %d\n", m);
@@ -1323,7 +1316,7 @@ int repeat_infinite_horizon(int mode)
 
 		printf("OPTIMUM mode:%d for %d-%d-%d-%d: with %lf\n", m, opt_t, opt_c, opt_s, opt_d, max_income);
 
-		max_income = 0;
+		max_income = -INFINITY;
 	}
 	
 	return 0;
@@ -1334,8 +1327,6 @@ int finite_horizon_single(int mode) {
 	int *n1 = finite_check_node;
 	int *n2 = finite_security_node;
 	int *n3 = finite_dropoff_node;
-
-	int max_income = 0;
 
 	double total_income[3];
 	double final_income[3];
@@ -1382,7 +1373,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[2], "r")) {
-		return repeat_infinite_horizon(mode);
+		return repeat_infinite_horizon();
 	} else if (!strcmp(argv[2], "i")) {
 		return infinite_horizon(mode);
 	} else if (!strcmp(argv[2], "f")) {
