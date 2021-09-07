@@ -18,7 +18,7 @@
 #define STOP 10000.0 /* terminal (close the door) time */
 //#define INFINITY (100.0 * STOP) /* must be much larger than STOP  */
 
-#define TEMP_NODE 3
+#define TEMP_NODE 5
 #define CHECK_NODE 20
 #define SECURITY_NODE 20
 #define DROPOFF_ONLINE 3
@@ -41,8 +41,8 @@
 #define CHECK_PERC 0.4
 #define DROPOFF_PERC 0.4
 
-#define FIRST_CLASS_SPENDING 50
-#define SECOND_CLASS_SPENDING 10
+#define FIRST_CLASS_SPENDING 20
+#define SECOND_CLASS_SPENDING 5
 
 #define BATCH_SIZE 1024
 #define ALFA 0.05
@@ -783,7 +783,24 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 	}
 
 	for (int j = 0; j < 4; j++) {
-		for (int i = 0; i < 248; i++) {
+		int max_servers;
+
+		switch(j) {
+		case TEMP:
+			max_servers = n0;
+			break;
+		case CHECK:
+			max_servers = n1;
+			break;
+		case SECURITY:
+			max_servers = n2;
+			break;
+		case DROP_OFF:
+			max_servers = n3;
+			break;
+		}
+
+		for (int i = 0; i < max_servers; i++) {
 			cost += SERV_COST * t.current;
 		}
 	}
