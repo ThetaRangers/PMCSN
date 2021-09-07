@@ -22,21 +22,6 @@ enum passenger_type getPassenger()
 	return SECOND_CLASS;
 }
 
-/*
-double minNode(struct node *nodes, int len, int *id)
-{
-	double minCompletion = nodes[0].completion;
-	*id = 0;
-	for (int i = 1; i < len; i++) {
-		minCompletion = min(minCompletion, nodes[i].completion);
-		if (nodes[i].completion == minCompletion) {
-			*id = i;
-		}
-	}
-
-	return minCompletion;
-}*/
-
 double minNode(struct node nodes[4][248], int *id, int *type)
 {
 	double minCompletion = nodes[0][0].completion;
@@ -56,8 +41,7 @@ double minNode(struct node nodes[4][248], int *id, int *type)
 	return minCompletion;
 }
 
-
-int minQueue(struct node nodes[4][248], int type){
+int minQueue(struct node nodes[4][248], int type, int mode, enum passenger_type pass_type){
 	int id = 0;
 	int i = 1;
 
@@ -66,18 +50,30 @@ int minQueue(struct node nodes[4][248], int type){
 	
 	//consider only open nodes
 	while(nodes[type][i].open && i < 248){
-		if(nodes[type][i].number < nodes[type][id].number) {
-			id = i;
+		if (!mode || pass_type == SECOND_CLASS) {
+			if(nodes[type][i].number < nodes[type][id].number) {
+				id = i;
+			}
+		} else {
+			if(nodes[type][i].number1 < nodes[type][id].number1) {
+				id = i;
+			}
 		}
-
 		i++;
 	}
 
 	i = 0;
 	while(nodes[type][i].open && i < 248){
-		if(nodes[type][i].number == nodes[type][id].number) {
-			minimum_array[minimum_index] = i;	
-			minimum_index++;
+		if (!mode || pass_type == SECOND_CLASS) {
+			if(nodes[type][i].number == nodes[type][id].number) {
+				minimum_array[minimum_index] = i;	
+				minimum_index++;
+			}
+		} else {
+			if(nodes[type][i].number1 == nodes[type][id].number1) {
+				minimum_array[minimum_index] = i;	
+				minimum_index++;
+			}
 		}
 		i++;
 	}
@@ -88,20 +84,3 @@ int minQueue(struct node nodes[4][248], int type){
 	return minimum_array[minimum_index];
 }
 
-/*
-int minQueue(struct node nodes[4][248], int type){
-	int id;
-	int i = 0;
-
-	id = nodes[type][0].number;
-
-	//consider only open nodes
-	while(nodes[type][i].open && i < 248){
-		if(nodes[type][i].number < nodes[type][id].number)
-			id = i;
-		i++;
-	}
-
-	return id;
-
-}*/
