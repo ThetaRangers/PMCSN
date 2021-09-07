@@ -26,8 +26,8 @@
 #define MAX_SERVERS 248
 
 #define MAX_TEMP 5
-#define MAX_CHECK 30
-#define MAX_SECURITY 30
+#define MAX_CHECK 25
+#define MAX_SECURITY 25
 #define MAX_DROP_OFF 5
 
 #define TIME_IN_AIRPORT 180
@@ -42,18 +42,18 @@
 #define DROPOFF_PERC 0.4
 
 #define FIRST_CLASS_SPENDING 50
-#define SECOND_CLASS_SPENDING 20
+#define SECOND_CLASS_SPENDING 10
 
 #define BATCH_SIZE 1024
 #define ALFA 0.05
 
-#define ARRIVAL_MEAN 0.5
+#define ARRIVAL_MEAN 0.3
 
 #define TEMP_MEAN 0.2
-#define CHECK_MEAN 5
-#define CHECK_DROP_MEAN 2
+#define CHECK_MEAN 8
+#define CHECK_DROP_MEAN 4
 #define SECURITY_MEAN 3
-#define DROPOFF_MEAN 2
+#define DROPOFF_MEAN 4
 
 #define CHECK_PROB 0.7
 
@@ -65,10 +65,15 @@
 //65536
 #define N 65536
 
-int finite_temp_node[3] = {2, 5, 3};
-int finite_check_node[3] = {5, 20, 10};
-int finite_security_node[3] = {5, 20, 10};
-int finite_dropoff_node[3] = {1, 3, 2};
+//Arrival 0.5
+//OPTIMUM mode:0 for 2-29-21-3: with 96925.039840
+//OPTIMUM mode:1 for 1-21-11-4: with 96940.039919
+
+
+int finite_temp_node[3] = {5, 10, 6};
+int finite_check_node[3] = {5, 25, 15};
+int finite_security_node[3] = {5, 25, 15};
+int finite_dropoff_node[3] = {5, 10, 6};
 
 FILE *st_file; //Service time
 FILE *node_population_file; //Node population
@@ -296,7 +301,8 @@ double getService(enum node_type type, int id)
 
 	switch (type) {
 	case TEMP:
-		return Exponential(TEMP_MEAN);
+		//return Exponential(TEMP_MEAN);
+		return TruncatedExponential(TEMP_MEAN, 0.7, 3);
 	case CHECK:
 		//x = Hyperexponential(CHECK_MEAN, CHECK_PROB);
 		//printf("AGAGA: %lf\n",x);
@@ -310,7 +316,8 @@ double getService(enum node_type type, int id)
 		return TruncatedNormal(SECURITY_MEAN, 2, 1.5, 5);
 		//return Exponential(SECURITY_MEAN);
 	case DROP_OFF:
-		return Exponential(DROPOFF_MEAN);
+		//return Exponential(DROPOFF_MEAN);
+		return TruncatedExponential(DROPOFF_MEAN, 1, 10);
 	default:
 		return 0;
 	}
@@ -1243,7 +1250,7 @@ int repeat_infinite_horizon(int mode)
 	double standard_max;
 	double improved_max;
 	
-	for(int m = 0; m < 2; m++) {
+	for(int m = 0; m < 1; m++) {
 		printf("Mode %d\n", m);
 
 		for(int t = 1; t < MAX_TEMP; t++) {
@@ -1253,6 +1260,7 @@ int repeat_infinite_horizon(int mode)
 				for(int s = 1; s < MAX_SECURITY; s++) {
 					for(int d = 1; d < MAX_DROP_OFF; d++) {
 						income = 0;
+						cost = 0;
 
 						PlantSeeds(SEED);
 						simulate(0, m, t, c, s, d, &temp_income, ets, ets1, ets2);
@@ -1271,7 +1279,7 @@ int repeat_infinite_horizon(int mode)
 			}
 		}
 
-		printf("OPTIMUM mode:%d for %d-%d-%d-%d: with %lf\n", mode, opt_t, opt_c, opt_s, opt_d, max_income);
+		printf("OPTIMUM mode:%d for %d-%d-%d-%d: with %lf\n", m, opt_t, opt_c, opt_s, opt_d, max_income);
 
 		max_income = 0;
 	}

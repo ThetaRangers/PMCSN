@@ -59,7 +59,7 @@ double minNode(struct node nodes[4][248], int *id, int *type)
 
 int minQueue(struct node nodes[4][248], int type){
 	int id = 0;
-	int i = 0;
+	int i = 1;
 
 	int minimum_array[248];
 	int minimum_index = 0;
@@ -82,9 +82,26 @@ int minQueue(struct node nodes[4][248], int type){
 		i++;
 	}
 
-	//TODO VALID
 	SelectStream(246);
 	minimum_index = Equilikely(0, minimum_index - 1);
 
 	return minimum_array[minimum_index];
 }
+
+/*
+int minQueue(struct node nodes[4][248], int type){
+	int id;
+	int i = 0;
+
+	id = nodes[type][0].number;
+
+	//consider only open nodes
+	while(nodes[type][i].open && i < 248){
+		if(nodes[type][i].number < nodes[type][id].number)
+			id = i;
+		i++;
+	}
+
+	return id;
+
+}*/
