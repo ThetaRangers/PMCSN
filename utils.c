@@ -28,9 +28,10 @@ double minNode(struct node nodes[4][248], int *id, int *type)
 	*id = 0;
 	*type = 0;
 
-	for(int j = 0; j < 4; j++) {
+	for (int j = 0; j < 4; j++) {
 		for (int i = 0; i < 248; i++) {
-			minCompletion = min(minCompletion, nodes[j][i].completion);
+			minCompletion =
+				min(minCompletion, nodes[j][i].completion);
 			if (nodes[j][i].completion == minCompletion) {
 				*id = i;
 				*type = j;
@@ -41,21 +42,23 @@ double minNode(struct node nodes[4][248], int *id, int *type)
 	return minCompletion;
 }
 
-int minQueue(struct node nodes[4][248], int type, int mode, enum passenger_type pass_type){
+int minQueue(struct node nodes[4][248], int type, int mode,
+	     enum passenger_type pass_type)
+{
 	int id = 0;
 	int i = 1;
 
 	int minimum_array[248];
 	int minimum_index = 0;
-	
+
 	//consider only open nodes
-	while(nodes[type][i].open && i < 248){
+	while (nodes[type][i].open && i < 248) {
 		if (!mode || pass_type == SECOND_CLASS) {
-			if(nodes[type][i].number < nodes[type][id].number) {
+			if (nodes[type][i].number < nodes[type][id].number) {
 				id = i;
 			}
 		} else {
-			if(nodes[type][i].number1 < nodes[type][id].number1) {
+			if (nodes[type][i].number1 < nodes[type][id].number1) {
 				id = i;
 			}
 		}
@@ -63,15 +66,15 @@ int minQueue(struct node nodes[4][248], int type, int mode, enum passenger_type 
 	}
 
 	i = 0;
-	while(nodes[type][i].open && i < 248){
+	while (nodes[type][i].open && i < 248) {
 		if (!mode || pass_type == SECOND_CLASS) {
-			if(nodes[type][i].number == nodes[type][id].number) {
-				minimum_array[minimum_index] = i;	
+			if (nodes[type][i].number == nodes[type][id].number) {
+				minimum_array[minimum_index] = i;
 				minimum_index++;
 			}
 		} else {
-			if(nodes[type][i].number1 == nodes[type][id].number1) {
-				minimum_array[minimum_index] = i;	
+			if (nodes[type][i].number1 == nodes[type][id].number1) {
+				minimum_array[minimum_index] = i;
 				minimum_index++;
 			}
 		}
@@ -83,4 +86,3 @@ int minQueue(struct node nodes[4][248], int type, int mode, enum passenger_type 
 
 	return minimum_array[minimum_index];
 }
-

@@ -11,8 +11,8 @@
 
 //904914315
 //1434868289
-//123456789 
-#define SEED 1434868289 
+//123456789
+#define SEED 1434868289
 
 #define START 0.0 /* initial time */
 #define STOP 10000.0 /* terminal (close the door) time */
@@ -69,11 +69,10 @@
 //OPTIMUM mode:0 for 2-29-21-3: with 96925.039840
 //OPTIMUM mode:1 for 1-21-11-4: with 96940.039919
 
-
-int finite_temp_node[3] = {10, 10, 10};
-int finite_check_node[3] = {25, 25, 25};
-int finite_security_node[3] = {15, 20, 20};
-int finite_dropoff_node[3] = {10, 10, 10};
+int finite_temp_node[3] = { 10, 10, 10 };
+int finite_check_node[3] = { 25, 25, 25 };
+int finite_security_node[3] = { 15, 20, 20 };
+int finite_dropoff_node[3] = { 10, 10, 10 };
 
 FILE *st_file; //Service time
 FILE *node_population_file; //Node population
@@ -97,29 +96,30 @@ double mean_18_24 = 0.3;
 
 struct node servers[4][MAX_SERVERS];
 
-int count_active(int block) {
+int count_active(int block)
+{
 	int active = 0;
 	int i = 0;
 	int max_servers;
 
-	switch(block) {
-		case 0:
+	switch (block) {
+	case 0:
 		max_servers = MAX_TEMP;
 		break;
-		case 1:
+	case 1:
 		max_servers = MAX_CHECK;
 		break;
-		case 2:
+	case 2:
 		max_servers = MAX_SECURITY;
 		break;
-		case 3:
+	case 3:
 		max_servers = MAX_DROP_OFF;
 		break;
-		default:
+	default:
 		max_servers = MAX_SERVERS;
 		break;
 	}
-	
+
 	while (servers[block][i].open && i < max_servers) {
 		active++;
 		i++;
@@ -128,65 +128,70 @@ int count_active(int block) {
 	return active;
 }
 
-void deactivate(int block, int count, double current_time) {
+void deactivate(int block, int count, double current_time)
+{
 	int i = 0;
 	int max_servers;
 
-	switch(block) {
-		case 0:
+	switch (block) {
+	case 0:
 		max_servers = MAX_TEMP;
 		break;
-		case 1:
+	case 1:
 		max_servers = MAX_CHECK;
 		break;
-		case 2:
+	case 2:
 		max_servers = MAX_SECURITY;
 		break;
-		case 3:
+	case 3:
 		max_servers = MAX_DROP_OFF;
 		break;
-		default:
+	default:
 		max_servers = MAX_SERVERS;
 		break;
 	}
 
 	while (servers[block][i].open && i < max_servers)
 		i++;
-	
+
 	//deactivate last count servers
-	for(int j=0; j < count && i-j > 0; j++){
-		if(servers[block][i -j - 1].open) {
-			servers[block][i -j - 1].active_time += current_time - servers[block][i -j - 1].opening_time;
+	for (int j = 0; j < count && i - j > 0; j++) {
+		if (servers[block][i - j - 1].open) {
+			servers[block][i - j - 1].active_time +=
+				current_time -
+				servers[block][i - j - 1].opening_time;
 			//printf("%d-%d:%lf\n", block, i -j - 1 ,servers[block][i -j - 1].active_time);
 		}
 
-		servers[block][i -j - 1].open = 0;
+		servers[block][i - j - 1].open = 0;
 	}
 }
 
-void deactivate_all(int block, double current_time){
+void deactivate_all(int block, double current_time)
+{
 	int count = count_active(block);
 	deactivate(block, count, current_time);
 }
 
-void activate(int block, int count, double current_time) {
+void activate(int block, int count, double current_time)
+{
 	int i = 0;
 	int max_servers;
 
-	switch(block) {
-		case 0:
+	switch (block) {
+	case 0:
 		max_servers = MAX_TEMP;
 		break;
-		case 1:
+	case 1:
 		max_servers = MAX_CHECK;
 		break;
-		case 2:
+	case 2:
 		max_servers = MAX_SECURITY;
 		break;
-		case 3:
+	case 3:
 		max_servers = MAX_DROP_OFF;
 		break;
-		default:
+	default:
 		max_servers = MAX_SERVERS;
 		break;
 	}
@@ -194,9 +199,9 @@ void activate(int block, int count, double current_time) {
 	while (servers[block][i].open && i < max_servers)
 		i++;
 	//activate last count servers
-	for(int j = 0; j < count && i+j < max_servers; j++){
-		servers[block][i+j].open = 1;
-		servers[block][i+j].opening_time = current_time;
+	for (int j = 0; j < count && i + j < max_servers; j++) {
+		servers[block][i + j].open = 1;
+		servers[block][i + j].opening_time = current_time;
 	}
 }
 
@@ -222,18 +227,20 @@ void activate_all(int block){
 	activate(block, count);
 }*/
 
-void change_servers(int block, int count, double current_time){
+void change_servers(int block, int count, double current_time)
+{
 	deactivate_all(block, current_time);
 	activate(block, count, current_time);
 }
 
- int getDestination(enum node_type type, int *dest_type, int mode, enum passenger_type pass_type)
+int getDestination(enum node_type type, int *dest_type, int mode,
+		   enum passenger_type pass_type)
 {
 	double rand;
 	switch (type) {
 	case TEMP:
 		*dest_type = 0;
-		return minQueue(servers,0, 0, pass_type);
+		return minQueue(servers, 0, 0, pass_type);
 	case CHECK:
 		SelectStream(252);
 		rand = Random();
@@ -254,7 +261,7 @@ void change_servers(int block, int count, double current_time){
 				return minQueue(servers, 3, mode, pass_type);
 			} else {
 				online++;
-				
+
 				*dest_type = 2;
 				return minQueue(servers, 2, mode, pass_type);
 			}
@@ -274,11 +281,11 @@ void change_servers(int block, int count, double current_time){
 double getArrival(double current)
 {
 	SelectStream(254);
-	double hour = ((int) current/60) % 24;
+	double hour = ((int)current / 60) % 24;
 
-	if(hour < 6) {
+	if (hour < 6) {
 		arrival += Exponential(mean_0_6);
-	} else if(hour < 18) {
+	} else if (hour < 18) {
 		arrival += Exponential(mean_6_18);
 	} else {
 		arrival += Exponential(mean_18_24);
@@ -287,10 +294,11 @@ double getArrival(double current)
 	return (arrival);
 }
 
-double getArrivalStatic() {
+double getArrivalStatic()
+{
 	SelectStream(254);
 	arrival += Exponential(arrival_mean);
-	
+
 	return arrival;
 }
 
@@ -323,7 +331,8 @@ double getService(enum node_type type, int id)
 	}
 }
 
-int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *inc, double ets[2], double ets1[2], double ets2[2])
+int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
+	     double *inc, double ets[2], double ets1[2], double ets2[2])
 {
 	/*
 	char response_filename[30] = "";
@@ -360,11 +369,12 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 	
 	*/
 	int fd3;
-	FILE* samples = NULL;
+	FILE *samples = NULL;
 
-	if(statistics) {
-	 fd3 = open("infinite_samples.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
-	 samples = fdopen(fd3, "w");
+	if (statistics) {
+		fd3 = open("infinite_samples.csv", O_WRONLY | O_CREAT | O_TRUNC,
+			   0644);
+		samples = fdopen(fd3, "w");
 	}
 
 	double batch_position = 0;
@@ -411,7 +421,7 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 	t.arrival = getArrivalStatic(); /* schedule the first arrival */
 
 	//Initialize nodes
-	for(int j = 0; j < 4; j++) {
+	for (int j = 0; j < 4; j++) {
 		for (int i = 0; i < MAX_SERVERS; i++) {
 			servers[j][i].completion = INFINITY;
 			servers[j][i].head = NULL;
@@ -432,22 +442,22 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 	//Set starting servers
 	int current_stream = 0;
 
-	for(int i=0; i < n0; i++) {
+	for (int i = 0; i < n0; i++) {
 		servers[0][i].open = 1;
 		servers[0][i].stream = current_stream;
 		current_stream++;
 	}
-	for(int i = 0; i < n1; i++) {
+	for (int i = 0; i < n1; i++) {
 		servers[1][i].open = 1;
 		servers[1][i].stream = current_stream;
 		current_stream++;
 	}
-	for(int i = 0; i < n2; i++) {
+	for (int i = 0; i < n2; i++) {
 		servers[2][i].open = 1;
 		servers[2][i].stream = current_stream;
 		current_stream++;
 	}
-	for(int i = 0; i < n3; i++) {
+	for (int i = 0; i < n3; i++) {
 		servers[3][i].open = 1;
 		servers[3][i].stream = current_stream;
 		current_stream++;
@@ -461,24 +471,30 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 	int type;
 	int dest_type;
 
-	while ((statistics && tot_completions < N) || (!statistics && t.arrival < STOP)) {
-	//while (tot_completions < N) {
+	while ((statistics && tot_completions < N) ||
+	       (!statistics && t.arrival < STOP)) {
+		//while (tot_completions < N) {
 		double minCompletion = minNode(servers, &id, &type);
-		
+
 		t.next = min(t.arrival, minCompletion);
 
-		if(statistics) {
-		for(int j = 0; j < 4; j++) {
-			for (int i = 0; i < nodesNumber; i++) {
-				if (servers[j][i].number > 0) { // update integrals
-					servers[j][i].area.node +=
-						(t.next - t.current) * servers[j][i].number;
-					servers[j][i].area.queue += (t.next - t.current) *
-							       (servers[j][i].number - 1);
-					servers[j][i].area.service += (t.next - t.current);
+		if (statistics) {
+			for (int j = 0; j < 4; j++) {
+				for (int i = 0; i < nodesNumber; i++) {
+					if (servers[j][i].number >
+					    0) { // update integrals
+						servers[j][i].area.node +=
+							(t.next - t.current) *
+							servers[j][i].number;
+						servers[j][i].area.queue +=
+							(t.next - t.current) *
+							(servers[j][i].number -
+							 1);
+						servers[j][i].area.service +=
+							(t.next - t.current);
+					}
 				}
 			}
-		}
 		}
 
 		t.current = t.next;
@@ -488,7 +504,8 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 			tot_arrivals++;
 			int p_type = getPassenger();
 
-			int destination = getDestination(TEMP, &dest_type, mode, p_type);
+			int destination =
+				getDestination(TEMP, &dest_type, mode, p_type);
 
 			enqueue(&servers[dest_type][destination].head,
 				&servers[dest_type][destination].tail, p_type,
@@ -497,13 +514,15 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 
 			servers[dest_type][destination].number++;
 
-			if(p_type == FIRST_CLASS) servers[dest_type][destination].number1++;
-			else servers[dest_type][destination].number2++;
+			if (p_type == FIRST_CLASS)
+				servers[dest_type][destination].number1++;
+			else
+				servers[dest_type][destination].number2++;
 
 			if (servers[dest_type][destination].number == 1)
 				servers[dest_type][destination].completion =
 					t.current +
-					getService(dest_type,destination);	
+					getService(dest_type, destination);
 
 		} else {
 			double arrival;
@@ -514,11 +533,14 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 
 			switch (type) {
 			case TEMP:
-				dequeue(&servers[type][id].head, &servers[type][id].tail,
-					&pass_type, &arrival);
+				dequeue(&servers[type][id].head,
+					&servers[type][id].tail, &pass_type,
+					&arrival);
 
-				if(pass_type == FIRST_CLASS) servers[type][id].number1--;
-				else servers[type][id].number2--;
+				if (pass_type == FIRST_CLASS)
+					servers[type][id].number1--;
+				else
+					servers[type][id].number2--;
 
 				if (servers[type][id].number > 0)
 					servers[type][id].completion =
@@ -527,32 +549,42 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 				else
 					servers[type][id].completion = INFINITY;
 
-				destination = getDestination(CHECK, &dest_type, mode, pass_type);
-				
+				destination = getDestination(CHECK, &dest_type,
+							     mode, pass_type);
+
 				if (destination != -1) {
 					servers[dest_type][destination].number++;
 
 					if (mode == 0 ||
 					    pass_type == FIRST_CLASS) {
-						enqueue(&servers[dest_type][destination].head,
-							&servers[dest_type][destination].tail,
+						enqueue(&servers[dest_type]
+								[destination]
+									.head,
+							&servers[dest_type]
+								[destination]
+									.tail,
 							pass_type, arrival);
-						servers[dest_type][destination].number1++;
+						servers[dest_type][destination]
+							.number1++;
 					} else {
-						enqueue(&servers[dest_type][destination]
-								 .head_second,
-							&servers[dest_type][destination]
-								 .tail_second,
+						enqueue(&servers[dest_type]
+								[destination]
+									.head_second,
+							&servers[dest_type]
+								[destination]
+									.tail_second,
 							pass_type, arrival);
-						servers[dest_type][destination].number2++;
+						servers[dest_type][destination]
+							.number2++;
 					}
 
-					if (servers[dest_type][destination].number == 1)
-						servers[dest_type][destination].completion =
+					if (servers[dest_type][destination]
+						    .number == 1)
+						servers[dest_type][destination]
+							.completion =
 							t.current +
-							getService(
-								dest_type,
-								destination);
+							getService(dest_type,
+								   destination);
 				} else {
 					number--;
 				}
@@ -560,18 +592,21 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 				break;
 			case DROP_OFF:
 			case CHECK:
-				if (mode == 0 || servers[type][id].head != NULL) {
+				if (mode == 0 ||
+				    servers[type][id].head != NULL) {
 					dequeue(&servers[type][id].head,
-						&servers[type][id].tail, &pass_type,
-						&arrival);
+						&servers[type][id].tail,
+						&pass_type, &arrival);
 				} else {
 					dequeue(&servers[type][id].head_second,
 						&servers[type][id].tail_second,
 						&pass_type, &arrival);
 				}
 
-				if(pass_type == FIRST_CLASS) servers[type][id].number1--;
-				else servers[type][id].number2--;
+				if (pass_type == FIRST_CLASS)
+					servers[type][id].number1--;
+				else
+					servers[type][id].number2--;
 
 				if (servers[type][id].number > 0)
 					servers[type][id].completion =
@@ -580,44 +615,54 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 				else
 					servers[type][id].completion = INFINITY;
 
-				destination = getDestination(SECURITY, &dest_type, mode, pass_type);
+				destination = getDestination(
+					SECURITY, &dest_type, mode, pass_type);
 
 				servers[dest_type][destination].number++;
 				if (mode == 0 || pass_type == FIRST_CLASS) {
-					enqueue(&servers[dest_type][destination].head,
-						&servers[dest_type][destination].tail,
+					enqueue(&servers[dest_type][destination]
+							 .head,
+						&servers[dest_type][destination]
+							 .tail,
 						pass_type, arrival);
 
-					servers[dest_type][destination].number1++;
+					servers[dest_type][destination]
+						.number1++;
 				} else {
-					enqueue(&servers[dest_type][destination].head_second,
-						&servers[dest_type][destination].tail_second,
+					enqueue(&servers[dest_type][destination]
+							 .head_second,
+						&servers[dest_type][destination]
+							 .tail_second,
 						pass_type, arrival);
-					servers[dest_type][destination].number2++;
+					servers[dest_type][destination]
+						.number2++;
 				}
 
 				if (servers[dest_type][destination].number == 1)
-					servers[dest_type][destination].completion =
+					servers[dest_type][destination]
+						.completion =
 						t.current +
-						getService(
-							dest_type,
-							destination);
+						getService(dest_type,
+							   destination);
 
 				break;
 			case SECURITY:
 				number--;
-				if (mode == 0 || servers[type][id].head != NULL) {
+				if (mode == 0 ||
+				    servers[type][id].head != NULL) {
 					dequeue(&servers[type][id].head,
-						&servers[type][id].tail, &pass_type,
-						&arrival);
+						&servers[type][id].tail,
+						&pass_type, &arrival);
 				} else {
 					dequeue(&servers[type][id].head_second,
 						&servers[type][id].tail_second,
 						&pass_type, &arrival);
 				}
 
-				if(pass_type == FIRST_CLASS) servers[type][id].number1--;
-				else servers[type][id].number2--;
+				if (pass_type == FIRST_CLASS)
+					servers[type][id].number1--;
+				else
+					servers[type][id].number2--;
 
 				SelectStream(255);
 				double time_airport =
@@ -625,81 +670,87 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 				double response_time = (t.current - arrival);
 				int spending;
 
-				if(statistics) {
-				//Welford
-				batch_position++;
-				double diff = response_time - batch_mean;
-				batch_mean += diff / batch_position;
+				if (statistics) {
+					//Welford
+					batch_position++;
+					double diff =
+						response_time - batch_mean;
+					batch_mean += diff / batch_position;
 
-				//Wellford for second class
-				if (pass_type == SECOND_CLASS) {
-					batch_position_second_class++;
-					diff = response_time -
-					       batch_second_class_mean;
-					batch_second_class_mean +=
-						diff /
-						batch_position_second_class;
-
-					if (batch_position_second_class ==
-					    BATCH_SIZE + 1) {
-						batches_second_class++;
-						diff = batch_second_class_mean -
-						       second_class_mean;
-						second_class_variance +=
-							diff * diff *
-							((batches_second_class -
-							  1.0) /
-							 batches_second_class);
-						second_class_mean +=
+					//Wellford for second class
+					if (pass_type == SECOND_CLASS) {
+						batch_position_second_class++;
+						diff = response_time -
+						       batch_second_class_mean;
+						batch_second_class_mean +=
 							diff /
-							batches_second_class;
+							batch_position_second_class;
 
-						batch_position_second_class = 0;
-						batch_second_class_mean = 0;
-					}
-					second_class_number++;
-				} else {
-					batch_position_first_class++;
-					diff = response_time -
-					       batch_first_class_mean;
-					batch_first_class_mean +=
-						diff /
-						batch_position_first_class;
+						if (batch_position_second_class ==
+						    BATCH_SIZE + 1) {
+							batches_second_class++;
+							diff = batch_second_class_mean -
+							       second_class_mean;
+							second_class_variance +=
+								diff * diff *
+								((batches_second_class -
+								  1.0) /
+								 batches_second_class);
+							second_class_mean +=
+								diff /
+								batches_second_class;
 
-					if (batch_position_first_class ==
-					    BATCH_SIZE + 1) {
-						batches_first_class++;
-						diff = batch_first_class_mean -
-						       first_class_mean;
-						first_class_variance +=
-							diff * diff *
-							((batches_first_class -
-							  1.0) /
-							 batches_first_class);
-						first_class_mean +=
+							batch_position_second_class =
+								0;
+							batch_second_class_mean =
+								0;
+						}
+						second_class_number++;
+					} else {
+						batch_position_first_class++;
+						diff = response_time -
+						       batch_first_class_mean;
+						batch_first_class_mean +=
 							diff /
-							batches_first_class;
+							batch_position_first_class;
 
-						batch_position_first_class = 0;
-						batch_first_class_mean = 0;
+						if (batch_position_first_class ==
+						    BATCH_SIZE + 1) {
+							batches_first_class++;
+							diff = batch_first_class_mean -
+							       first_class_mean;
+							first_class_variance +=
+								diff * diff *
+								((batches_first_class -
+								  1.0) /
+								 batches_first_class);
+							first_class_mean +=
+								diff /
+								batches_first_class;
+
+							batch_position_first_class =
+								0;
+							batch_first_class_mean =
+								0;
+						}
+						first_class_number++;
 					}
-					first_class_number++;
+
+					if (batch_position == BATCH_SIZE + 1) {
+						//Total Mean Welford
+						batches++;
+						diff = batch_mean - mean;
+						variance += diff * diff *
+							    ((batches - 1.0) /
+							     batches);
+						mean += diff / batches;
+
+						batch_position = 0;
+						batch_mean = 0;
+					}
 				}
 
-				if (batch_position == BATCH_SIZE + 1) {
-					//Total Mean Welford
-					batches++;
-					diff = batch_mean - mean;
-					variance += diff * diff *
-						    ((batches - 1.0) / batches);
-					mean += diff / batches;
-
-					batch_position = 0;
-					batch_mean = 0;
-				}
-				}
-
-				if(pass_type == FIRST_CLASS) {
+				if (pass_type == FIRST_CLASS) {
 					spending = FIRST_CLASS_SPENDING;
 				} else {
 					spending = SECOND_CLASS_SPENDING;
@@ -708,13 +759,15 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 				tot_completions++;
 
 				double time_left = time_airport - response_time;
-				if(statistics) fprintf(samples, "%lf\n", response_time);
+				if (statistics)
+					fprintf(samples, "%lf\n",
+						response_time);
 
 				if (time_left > 0) {
 					income += (time_left / time_airport) *
 						  spending;
 				}
-				
+
 				if (servers[type][id].number > 0)
 					servers[type][id].completion =
 						t.current +
@@ -729,74 +782,75 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3, double *i
 		}
 	}
 
-	for(int j = 0; j < 4; j++) {
-		for(int i = 0; i < 248; i++) {
+	for (int j = 0; j < 4; j++) {
+		for (int i = 0; i < 248; i++) {
 			cost += SERV_COST * t.current;
 		}
 	}
 
-	for(int j = 0; j < 4; j++) {
+	for (int j = 0; j < 4; j++) {
 		for (int i = 0; i < MAX_SERVERS; i++) {
 			remove_all(&servers[j][i].head);
 			remove_all(&servers[j][i].head_second);
 		}
 	}
 
-	if(statistics) {
-	// Last Welford iteration
-	batches++;
-	double diff = batch_mean - mean;
-	variance += diff * diff * (batches - 1) / batches;
-	mean += diff / batches;
-	variance = variance / batches;
-	stdev = sqrt(variance);
+	if (statistics) {
+		// Last Welford iteration
+		batches++;
+		double diff = batch_mean - mean;
+		variance += diff * diff * (batches - 1) / batches;
+		mean += diff / batches;
+		variance = variance / batches;
+		stdev = sqrt(variance);
 
-	double t_student = idfStudent(batches - 1, 1 - ALFA / 2);
-	double endpoint = t_student * stdev / sqrt(batches - 1);
+		double t_student = idfStudent(batches - 1, 1 - ALFA / 2);
+		double endpoint = t_student * stdev / sqrt(batches - 1);
 
-	// Last Welford iteration for first class
-	batches_first_class++;
-	diff = batch_first_class_mean - first_class_mean;
-	first_class_variance +=
-		diff * diff *
-		((batches_first_class - 1.0) / batches_first_class);
-	first_class_mean += diff / batches_first_class;
-	first_class_variance = first_class_variance / batches_first_class;
-	first_class_stdev = sqrt(first_class_variance);
+		// Last Welford iteration for first class
+		batches_first_class++;
+		diff = batch_first_class_mean - first_class_mean;
+		first_class_variance +=
+			diff * diff *
+			((batches_first_class - 1.0) / batches_first_class);
+		first_class_mean += diff / batches_first_class;
+		first_class_variance =
+			first_class_variance / batches_first_class;
+		first_class_stdev = sqrt(first_class_variance);
 
-	double t_student_first_class =
-		idfStudent(batches_first_class - 1, 1 - ALFA / 2);
-	double first_class_endpoint = t_student_first_class *
-				      first_class_stdev /
-				      sqrt(batches_first_class - 1);
+		double t_student_first_class =
+			idfStudent(batches_first_class - 1, 1 - ALFA / 2);
+		double first_class_endpoint = t_student_first_class *
+					      first_class_stdev /
+					      sqrt(batches_first_class - 1);
 
-	// Last Welford iteration for second class
-	batches_second_class++;
-	diff = batch_second_class_mean - second_class_mean;
-	second_class_variance +=
-		diff * diff *
-		((batches_second_class - 1.0) / batches_second_class);
-	second_class_mean += diff / batches_second_class;
-	second_class_variance = second_class_variance / batches_second_class;
-	second_class_stdev = sqrt(second_class_variance);
+		// Last Welford iteration for second class
+		batches_second_class++;
+		diff = batch_second_class_mean - second_class_mean;
+		second_class_variance +=
+			diff * diff *
+			((batches_second_class - 1.0) / batches_second_class);
+		second_class_mean += diff / batches_second_class;
+		second_class_variance =
+			second_class_variance / batches_second_class;
+		second_class_stdev = sqrt(second_class_variance);
 
-	double t_student_second_class =
-		idfStudent(batches_second_class - 1, 1 - ALFA / 2);
-	double second_class_endpoint = t_student_second_class *
-				       second_class_stdev /
-				       sqrt(batches_second_class - 1);
-	
-	
-	ets[0] = mean;
-	ets[1] = endpoint;
+		double t_student_second_class =
+			idfStudent(batches_second_class - 1, 1 - ALFA / 2);
+		double second_class_endpoint = t_student_second_class *
+					       second_class_stdev /
+					       sqrt(batches_second_class - 1);
 
-	ets1[0] = first_class_mean;
-	ets1[1] = first_class_endpoint;
+		ets[0] = mean;
+		ets[1] = endpoint;
 
-	ets2[0] = second_class_mean;
-	ets2[1] = second_class_endpoint;
+		ets1[0] = first_class_mean;
+		ets1[1] = first_class_endpoint;
 
-	fclose(samples);
+		ets2[0] = second_class_mean;
+		ets2[1] = second_class_endpoint;
+
+		fclose(samples);
 	}
 
 	income -= cost;
@@ -883,16 +937,20 @@ int infinite_horizon(int mode)
 	double ets[2];
 	double ets1[2];
 	double ets2[2];
-	
-	simulate(1, mode, TEMP_NODE, CHECK_NODE, SECURITY_NODE, DROPOFF_ONLINE, &inc, ets, ets1, ets2);
-	printf("INCOME: %lf\n",inc);
+
+	simulate(1, mode, TEMP_NODE, CHECK_NODE, SECURITY_NODE, DROPOFF_ONLINE,
+		 &inc, ets, ets1, ets2);
+	printf("INCOME: %lf\n", inc);
 
 	return 0;
 }
 
-void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double final_income[3], double total_income[3], double costs[3])
+void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
+		    double final_income[3], double total_income[3],
+		    double costs[3])
 {
-	int fd1 = open("finite_horizon_response_time.csv", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	int fd1 = open("finite_horizon_response_time.csv",
+		       O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
 	if (fd1 == -1) {
 		perror("open");
@@ -918,14 +976,14 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 	double completions1 = 0;
 	double completions2 = 0;
 
-	double prev_active_time[4][248]; 
+	double prev_active_time[4][248];
 
 	arrival = 0;
 	t.current = START; /* set the clock */
 	t.arrival = getArrival(t.current); /* schedule the first arrival */
 
 	//Initialize nodes
-	for(int j = 0; j < 4; j++) {
+	for (int j = 0; j < 4; j++) {
 		for (int i = 0; i < MAX_SERVERS; i++) {
 			servers[j][i].completion = INFINITY;
 			servers[j][i].head = NULL;
@@ -948,7 +1006,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 	//Set starting servers
 	int current_stream = 0;
 
-	for(int i=0; i < MAX_TEMP; i++) {
+	for (int i = 0; i < MAX_TEMP; i++) {
 		if (i < n0[0]) {
 			servers[0][i].open = 1;
 			servers[0][i].opening_time = 0;
@@ -956,7 +1014,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 		servers[0][i].stream = current_stream;
 		current_stream++;
 	}
-	for(int i = 0; i < MAX_CHECK; i++) {
+	for (int i = 0; i < MAX_CHECK; i++) {
 		if (i < n1[0]) {
 			servers[1][i].open = 1;
 			servers[1][i].opening_time = 0;
@@ -964,7 +1022,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 		servers[1][i].stream = current_stream;
 		current_stream++;
 	}
-	for(int i = 0; i < MAX_SECURITY; i++) {
+	for (int i = 0; i < MAX_SECURITY; i++) {
 		if (i < n2[0]) {
 			servers[2][i].open = 1;
 			servers[2][i].opening_time = 0;
@@ -972,7 +1030,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 		servers[2][i].stream = current_stream;
 		current_stream++;
 	}
-	for(int i = 0; i < MAX_DROP_OFF; i++) {
+	for (int i = 0; i < MAX_DROP_OFF; i++) {
 		if (i < n3[0]) {
 			servers[3][i].open = 1;
 			servers[3][i].opening_time = 0;
@@ -993,23 +1051,28 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 		t.next = min(t.arrival, minCompletion);
 		t.next = min(t.next, turn_change);
 
-	for(int j = 0; j < 4; j++) {
-		for (int i = 0; i < 248; i++) {
-			if (servers[j][i].number > 0) { // update integrals
-				servers[j][i].area.node +=
-					(t.next - t.current) * servers[j][i].number;
-				servers[j][i].area.queue += (t.next - t.current) *
-						       (servers[j][i].number - 1);
-				servers[j][i].area.service += (t.next - t.current);
+		for (int j = 0; j < 4; j++) {
+			for (int i = 0; i < 248; i++) {
+				if (servers[j][i].number >
+				    0) { // update integrals
+					servers[j][i].area.node +=
+						(t.next - t.current) *
+						servers[j][i].number;
+					servers[j][i].area.queue +=
+						(t.next - t.current) *
+						(servers[j][i].number - 1);
+					servers[j][i].area.service +=
+						(t.next - t.current);
 
-				//TODO ok???
-				//If is closed but has still someone in the queue add active times
-				if(!servers[j][i].open) {
-					servers[j][i].active_time += (t.next - t.current);
+					//TODO ok???
+					//If is closed but has still someone in the queue add active times
+					if (!servers[j][i].open) {
+						servers[j][i].active_time +=
+							(t.next - t.current);
+					}
 				}
 			}
 		}
-	}
 
 		t.current = t.next;
 
@@ -1018,7 +1081,8 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 
 			int p_type = getPassenger();
 
-			int destination = getDestination(TEMP, &dest_type, mode, p_type);
+			int destination =
+				getDestination(TEMP, &dest_type, mode, p_type);
 
 			enqueue(&servers[dest_type][destination].head,
 				&servers[dest_type][destination].tail, p_type,
@@ -1026,8 +1090,10 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 			t.arrival = getArrival(t.current);
 
 			servers[dest_type][destination].number++;
-			if(p_type == FIRST_CLASS) servers[dest_type][destination].number1++;
-			else servers[dest_type][destination].number2++;
+			if (p_type == FIRST_CLASS)
+				servers[dest_type][destination].number1++;
+			else
+				servers[dest_type][destination].number2++;
 
 			if (t.arrival > STOP) {
 				t.last = t.current;
@@ -1037,10 +1103,12 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 			if (servers[dest_type][destination].number == 1)
 				servers[dest_type][destination].completion =
 					t.current +
-					getService(servers[dest_type][destination].type,
-						   destination);
+					getService(
+						servers[dest_type][destination]
+							.type,
+						destination);
 
-		} else if(t.current == turn_change) {
+		} else if (t.current == turn_change) {
 			switch (turn_change) {
 			case 360:
 				turn_change = 1080;
@@ -1049,14 +1117,18 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 				change_servers(2, n2[1], t.current);
 				change_servers(3, n3[1], t.current);
 				total_income[0] = income;
-				for(int j = 0; j < 4; j++) {
-					for(int i = 0; i < 248; i++) {
-						cost += SERV_COST * servers[j][i].active_time;
-						prev_active_time[j][i] = servers[j][i].active_time;
+				for (int j = 0; j < 4; j++) {
+					for (int i = 0; i < 248; i++) {
+						cost += SERV_COST *
+							servers[j][i]
+								.active_time;
+						prev_active_time[j][i] =
+							servers[j][i]
+								.active_time;
 					}
 				}
 				costs[0] = cost;
-				final_income[0] = income-cost;
+				final_income[0] = income - cost;
 				income = 0;
 				cost = 0;
 				break;
@@ -1066,14 +1138,19 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 				change_servers(2, n2[2], t.current);
 				change_servers(3, n3[2], t.current);
 				total_income[1] = income;
-				for(int j = 0; j < 4; j++) {
-					for(int i = 0; i < 248; i++) {
-						cost += SERV_COST * ( servers[j][i].active_time - prev_active_time[j][i] );
-						prev_active_time[j][i] = servers[j][i].active_time;
+				for (int j = 0; j < 4; j++) {
+					for (int i = 0; i < 248; i++) {
+						cost += SERV_COST *
+							(servers[j][i]
+								 .active_time -
+							 prev_active_time[j][i]);
+						prev_active_time[j][i] =
+							servers[j][i]
+								.active_time;
 					}
 				}
 				costs[1] = cost;
-				final_income[1] = income-cost;
+				final_income[1] = income - cost;
 				income = 0;
 				cost = 0;
 				turn_change = 10 * STOP_FINITE;
@@ -1082,21 +1159,24 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 				turn_change = 10 * STOP_FINITE;
 				break;
 			}
-			
+
 		} else {
 			double arrival;
 			int destination = 0;
 			enum passenger_type pass_type;
-			
+
 			servers[type][id].number--;
 
 			switch (type) {
 			case TEMP:
-				dequeue(&servers[type][id].head, &servers[type][id].tail,
-					&pass_type, &arrival);
+				dequeue(&servers[type][id].head,
+					&servers[type][id].tail, &pass_type,
+					&arrival);
 
-				if(pass_type == FIRST_CLASS) servers[type][id].number1--;
-				else servers[type][id].number2--;
+				if (pass_type == FIRST_CLASS)
+					servers[type][id].number1--;
+				else
+					servers[type][id].number2--;
 
 				if (servers[type][id].number > 0)
 					servers[type][id].completion =
@@ -1105,33 +1185,43 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 				else
 					servers[type][id].completion = INFINITY;
 
-				destination = getDestination(CHECK, &dest_type, mode, pass_type);
+				destination = getDestination(CHECK, &dest_type,
+							     mode, pass_type);
 				if (destination != -1) {
 					servers[dest_type][destination].number++;
 
 					if (mode == 0 ||
 					    pass_type == FIRST_CLASS) {
-						enqueue(&servers[dest_type][destination].head,
-							&servers[dest_type][destination].tail,
+						enqueue(&servers[dest_type]
+								[destination]
+									.head,
+							&servers[dest_type]
+								[destination]
+									.tail,
 							pass_type, arrival);
-						servers[dest_type][destination].number1++;
+						servers[dest_type][destination]
+							.number1++;
 
 					} else {
-						enqueue(&servers[dest_type][destination]
-								 .head_second,
-							&servers[dest_type][destination]
-								 .tail_second,
+						enqueue(&servers[dest_type]
+								[destination]
+									.head_second,
+							&servers[dest_type]
+								[destination]
+									.tail_second,
 							pass_type, arrival);
 
-						servers[dest_type][destination].number2++;
+						servers[dest_type][destination]
+							.number2++;
 					}
 
-					if (servers[dest_type][destination].number == 1)
-						servers[dest_type][destination].completion =
+					if (servers[dest_type][destination]
+						    .number == 1)
+						servers[dest_type][destination]
+							.completion =
 							t.current +
-							getService(
-								dest_type,
-								destination);
+							getService(dest_type,
+								   destination);
 				} else {
 					number--;
 				}
@@ -1139,18 +1229,21 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 				break;
 			case DROP_OFF:
 			case CHECK:
-				if (mode == 0 || servers[type][id].head != NULL) {
+				if (mode == 0 ||
+				    servers[type][id].head != NULL) {
 					dequeue(&servers[type][id].head,
-						&servers[type][id].tail, &pass_type,
-						&arrival);
+						&servers[type][id].tail,
+						&pass_type, &arrival);
 				} else {
 					dequeue(&servers[type][id].head_second,
 						&servers[type][id].tail_second,
 						&pass_type, &arrival);
 				}
 
-				if(pass_type == FIRST_CLASS) servers[type][id].number1--;
-				else servers[type][id].number2--;
+				if (pass_type == FIRST_CLASS)
+					servers[type][id].number1--;
+				else
+					servers[type][id].number2--;
 
 				if (servers[type][id].number > 0)
 					servers[type][id].completion =
@@ -1159,54 +1252,64 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 				else
 					servers[type][id].completion = INFINITY;
 
-				destination = getDestination(SECURITY, &dest_type, mode, pass_type);
+				destination = getDestination(
+					SECURITY, &dest_type, mode, pass_type);
 
 				servers[dest_type][destination].number++;
 				if (mode == 0 || pass_type == FIRST_CLASS) {
-					enqueue(&servers[dest_type][destination].head,
-						&servers[dest_type][destination].tail,
+					enqueue(&servers[dest_type][destination]
+							 .head,
+						&servers[dest_type][destination]
+							 .tail,
 						pass_type, arrival);
-					servers[dest_type][destination].number1++;
+					servers[dest_type][destination]
+						.number1++;
 				} else {
-					enqueue(&servers[dest_type][destination].head_second,
-						&servers[dest_type][destination].tail_second,
+					enqueue(&servers[dest_type][destination]
+							 .head_second,
+						&servers[dest_type][destination]
+							 .tail_second,
 						pass_type, arrival);
 
-					servers[dest_type][destination].number2++;
+					servers[dest_type][destination]
+						.number2++;
 				}
 
 				if (servers[dest_type][destination].number == 1)
-					servers[dest_type][destination].completion =
+					servers[dest_type][destination]
+						.completion =
 						t.current +
-						getService(
-							type,
-							destination);
+						getService(type, destination);
 
 				break;
 			case SECURITY:
 				number--;
 
-				if (mode == 0 || servers[type][id].head != NULL) {
+				if (mode == 0 ||
+				    servers[type][id].head != NULL) {
 					dequeue(&servers[type][id].head,
-						&servers[type][id].tail, &pass_type,
-						&arrival);
+						&servers[type][id].tail,
+						&pass_type, &arrival);
 				} else {
 					dequeue(&servers[type][id].head_second,
 						&servers[type][id].tail_second,
 						&pass_type, &arrival);
 				}
 
-				if(pass_type == FIRST_CLASS) servers[type][id].number1--;
-				else servers[type][id].number2--;
+				if (pass_type == FIRST_CLASS)
+					servers[type][id].number1--;
+				else
+					servers[type][id].number2--;
 
-				double time_airport = 
+				double time_airport =
 					Normal(TIME_IN_AIRPORT, VARIANCE);
 				double response_time = t.current - arrival;
-				
-				fprintf(st_file, "%lf,%lf\n", t.current, response_time);
+
+				fprintf(st_file, "%lf,%lf\n", t.current,
+					response_time);
 
 				double spending;
-				if(pass_type == FIRST_CLASS) {
+				if (pass_type == FIRST_CLASS) {
 					ets1 += response_time;
 					completions1++;
 					spending = FIRST_CLASS_SPENDING;
@@ -1221,7 +1324,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 					income += (time_left / time_airport) *
 						  spending;
 				}
-			
+
 				ets += response_time;
 				completions++;
 
@@ -1239,26 +1342,26 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3], double
 
 	t.next = STOP_FINITE;
 
-	ets = ets/completions;
-	ets1 = ets1/completions1;
-	ets2 = ets2/completions2;
+	ets = ets / completions;
+	ets1 = ets1 / completions1;
+	ets2 = ets2 / completions2;
 
 	total_income[2] = income;
-	for(int j = 0; j < 4; j++) {
+	for (int j = 0; j < 4; j++) {
 		change_servers(j, 0, STOP_FINITE);
-		for(int i = 0; i < 248; i++) {
-			cost += SERV_COST * ( servers[j][i].active_time - prev_active_time[j][i]);
+		for (int i = 0; i < 248; i++) {
+			cost += SERV_COST * (servers[j][i].active_time -
+					     prev_active_time[j][i]);
 		}
 	}
 	costs[2] = cost;
-	final_income[2] = income-cost;
-	
+	final_income[2] = income - cost;
 
 	//cost and income are global reset for next repetition
 	cost = 0;
 	income = 0;
 
-	for(int j = 0; j < 4; j++) {
+	for (int j = 0; j < 4; j++) {
 		for (int i = 0; i < MAX_SERVERS; i++) {
 			remove_all(&servers[j][i].head);
 			remove_all(&servers[j][i].head_second);
@@ -1284,24 +1387,27 @@ int repeat_infinite_horizon()
 	double ets[2];
 	double ets1[2];
 	double ets2[2];
-	
-	for(int m = 0; m < 2; m++) {
+
+	for (int m = 0; m < 2; m++) {
 		printf("Mode %d\n", m);
 
-		for(int t = 1; t < MAX_TEMP; t++) {
+		for (int t = 1; t < MAX_TEMP; t++) {
 			printf("T: %d\n", t);
-			for(int c = 1; c < MAX_CHECK; c++) {
+			for (int c = 1; c < MAX_CHECK; c++) {
 				printf("C: %d\n", c);
-				for(int s = 1; s < MAX_SECURITY; s++) {
-					for(int d = 1; d < MAX_DROP_OFF; d++) {
+				for (int s = 1; s < MAX_SECURITY; s++) {
+					for (int d = 1; d < MAX_DROP_OFF; d++) {
 						income = 0;
 						cost = 0;
 
 						PlantSeeds(SEED);
-						simulate(0, m, t, c, s, d, &temp_income, ets, ets1, ets2);
+						simulate(0, m, t, c, s, d,
+							 &temp_income, ets,
+							 ets1, ets2);
 						//printf("Income %d-%d-%d-%d: %lf\n", t,c,s,d,temp_income);
-						if(temp_income > max_income) {
-							max_income = temp_income;
+						if (temp_income > max_income) {
+							max_income =
+								temp_income;
 							opt_t = t;
 							opt_c = c;
 							opt_s = s;
@@ -1314,15 +1420,17 @@ int repeat_infinite_horizon()
 			}
 		}
 
-		printf("OPTIMUM mode:%d for %d-%d-%d-%d: with %lf\n", m, opt_t, opt_c, opt_s, opt_d, max_income);
+		printf("OPTIMUM mode:%d for %d-%d-%d-%d: with %lf\n", m, opt_t,
+		       opt_c, opt_s, opt_d, max_income);
 
 		max_income = -INFINITY;
 	}
-	
+
 	return 0;
 }
 
-int finite_horizon_single(int mode) {
+int finite_horizon_single(int mode)
+{
 	int *n0 = finite_temp_node;
 	int *n1 = finite_check_node;
 	int *n2 = finite_security_node;
@@ -1338,18 +1446,19 @@ int finite_horizon_single(int mode) {
 	double cost_sum = 0;
 	double earning_sum = 0;
 
-	for(int i=0; i < 3; i++){
-		printf("Phase %d->income: %lf costs: %lf earning: %lf \n", i+1, total_income[i], costs[i], final_income[i]);
-	
-		income_sum+= total_income[i];
-		cost_sum+= costs[i];
-		earning_sum+= final_income[i];
+	for (int i = 0; i < 3; i++) {
+		printf("Phase %d->income: %lf costs: %lf earning: %lf \n",
+		       i + 1, total_income[i], costs[i], final_income[i]);
+
+		income_sum += total_income[i];
+		cost_sum += costs[i];
+		earning_sum += final_income[i];
 	}
 
-	printf("TOTAL->income: %lf costs: %lf earning: %lf \n",income_sum, cost_sum, earning_sum);
+	printf("TOTAL->income: %lf costs: %lf earning: %lf \n", income_sum,
+	       cost_sum, earning_sum);
 
 	return 0;
-
 }
 
 int main(int argc, char **argv)

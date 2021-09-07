@@ -134,13 +134,14 @@ double Exponential(double m)
 	return (-m * log(1.0 - Random()));
 }
 
-double Hyperexponential(double m, double p) {
+double Hyperexponential(double m, double p)
+{
 	SelectStream(247);
 
-	if(Bernoulli(p)) {
-		return Exponential(m/(2*p));
+	if (Bernoulli(p)) {
+		return Exponential(m / (2 * p));
 	} else {
-		return Exponential(m/(2*(1-p)));
+		return Exponential(m / (2 * (1 - p)));
 	}
 }
 
@@ -232,32 +233,35 @@ double Student(long n)
 	return (Normal(0.0, 1.0) / sqrt(Chisquare(n) / n));
 }
 
-double TruncatedNormal(double m, double s, double a, double b) {
+double TruncatedNormal(double m, double s, double a, double b)
+{
 	double alpha = cdfNormal(m, s, a);
 	double beta = 1.0 - cdfNormal(m, s, b);
 	double u = Uniform(alpha, 1.0 - beta); // Ok boomer
-	
+
 	return idfNormal(m, s, u);
 }
 
-double TruncatedExponential(double m, double a, double b) {
+double TruncatedExponential(double m, double a, double b)
+{
 	double alpha = cdfExponential(m, a);
 	double beta = 1.0 - cdfExponential(m, b);
 	double u = Uniform(alpha, 1.0 - beta);
-	
+
 	return idfExponential(m, u);
 }
 
-double CheckinDistribution(double m1, double m2, double p) {
+double CheckinDistribution(double m1, double m2, double p)
+{
 	SelectStream(247);
 	double result;
 
 	result = TruncatedExponential(m1, 1, 20);
 	//result = Exponential(m1);
-	
-	if(Bernoulli(1-p)) {
+
+	if (Bernoulli(1 - p)) {
 		printf("result1: %lf\n", result);
-		return result;	
+		return result;
 	} else {
 		result += TruncatedExponential(m2, 1, 20);
 		//result += Exponential(m2);
