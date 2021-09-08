@@ -14,7 +14,7 @@ double min(double a, double c)
 
 enum passenger_type getPassenger()
 {
-	long res = Bernoulli(0.3);
+	long res = Bernoulli(0.4);
 
 	if (res == 1)
 		return FIRST_CLASS;
@@ -22,14 +22,14 @@ enum passenger_type getPassenger()
 	return SECOND_CLASS;
 }
 
-double minNode(struct node nodes[4][248], int *id, int *type)
+double minNode(struct node nodes[4][246], int *id, int *type)
 {
 	double minCompletion = nodes[0][0].completion;
 	*id = 0;
 	*type = 0;
 
 	for (int j = 0; j < 4; j++) {
-		for (int i = 0; i < 248; i++) {
+		for (int i = 0; i < 246; i++) {
 			minCompletion =
 				min(minCompletion, nodes[j][i].completion);
 			if (nodes[j][i].completion == minCompletion) {
@@ -42,18 +42,18 @@ double minNode(struct node nodes[4][248], int *id, int *type)
 	return minCompletion;
 }
 
-int minQueue(struct node nodes[4][248], int type, int mode,
+int minQueue(struct node nodes[4][246], int type, int mode,
 	     enum passenger_type pass_type)
 {
 	int id = 0;
 	int i = 1;
 
-	int minimum_array[248];
+	int minimum_array[246];
 	int minimum_index = 0;
 
 	//consider only open nodes
-	while (nodes[type][i].open && i < 248) {
-		if (!mode || pass_type == SECOND_CLASS) {
+	while (nodes[type][i].open && i < 246) {
+		if (mode == 0 || mode == 1 || pass_type == SECOND_CLASS) {
 			if (nodes[type][i].number < nodes[type][id].number) {
 				id = i;
 			}
@@ -65,15 +65,27 @@ int minQueue(struct node nodes[4][248], int type, int mode,
 		i++;
 	}
 
+	if (mode == 2 || mode == 3) {
+		i = 0;
+		while (nodes[type][i].open && i < 246) {
+			if (nodes[type][i].number1 == nodes[type][id].number1 &&
+			    nodes[type][i].number < nodes[type][id].number) {
+				id = i;
+			}
+			i++;
+		}
+	}
+
 	i = 0;
-	while (nodes[type][i].open && i < 248) {
-		if (!mode || pass_type == SECOND_CLASS) {
+	while (nodes[type][i].open && i < 246) {
+		if (mode == 0 || mode == 1 || pass_type == SECOND_CLASS) {
 			if (nodes[type][i].number == nodes[type][id].number) {
 				minimum_array[minimum_index] = i;
 				minimum_index++;
 			}
 		} else {
-			if (nodes[type][i].number1 == nodes[type][id].number1) {
+			if (nodes[type][i].number1 == nodes[type][id].number1 &&
+			    nodes[type][i].number == nodes[type][id].number) {
 				minimum_array[minimum_index] = i;
 				minimum_index++;
 			}
@@ -81,7 +93,6 @@ int minQueue(struct node nodes[4][248], int type, int mode,
 		i++;
 	}
 
-	SelectStream(246);
 	minimum_index = Equilikely(0, minimum_index - 1);
 
 	return minimum_array[minimum_index];

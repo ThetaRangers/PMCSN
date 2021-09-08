@@ -16,18 +16,16 @@
 
 #define START 0.0 /* initial time */
 #define STOP 10000.0 /* terminal (close the door) time */
-//#define INFINITY (100.0 * STOP) /* must be much larger than STOP  */
 
-#define TEMP_NODE 5
+#define TEMP_NODE 10
 #define CHECK_NODE 20
-#define SECURITY_NODE 20
-#define DROPOFF_ONLINE 3
-
-#define MAX_SERVERS 248
+#define SECURITY_NODE 23
+#define DROPOFF_ONLINE 10
+#define MAX_SERVERS 246
 
 #define MAX_TEMP 10
 #define MAX_CHECK 30
-#define MAX_SECURITY 20
+#define MAX_SECURITY 25
 #define MAX_DROP_OFF 10
 
 #define TIME_IN_AIRPORT 180
@@ -47,7 +45,7 @@
 #define BATCH_SIZE 1024
 #define ALFA 0.05
 
-#define ARRIVAL_MEAN 0.3
+#define ARRIVAL_MEAN 0.15
 
 #define TEMP_MEAN 0.2
 #define CHECK_MEAN 5
@@ -62,22 +60,17 @@
 #define STOP_FINITE 1440
 #define SAMPLE_INTERVAL 1
 
-//65536
 #define N 65536
 
-//Arrival 0.5
-//OPTIMUM mode:0 for 2-29-21-3: with 96925.039840
-//OPTIMUM mode:1 for 1-21-11-4: with 96940.039919
-
 int finite_temp_node[3] = { 10, 10, 10 };
-int finite_check_node[3] = { 25, 25, 25 };
-int finite_security_node[3] = { 15, 20, 20 };
+int finite_check_node[3] = { 25, 20, 25 };
+int finite_security_node[3] = { 15, 25, 20 };
 int finite_dropoff_node[3] = { 10, 10, 10 };
 
 FILE *st_file; //Service time
 FILE *node_population_file; //Node population
 
-double arrival = START;
+double arr = START;
 
 double cost = 0;
 double income = 0;
@@ -160,7 +153,6 @@ void deactivate(int block, int count, double current_time)
 			servers[block][i - j - 1].active_time +=
 				current_time -
 				servers[block][i - j - 1].opening_time;
-			//printf("%d-%d:%lf\n", block, i -j - 1 ,servers[block][i -j - 1].active_time);
 		}
 
 		servers[block][i - j - 1].open = 0;
@@ -205,28 +197,6 @@ void activate(int block, int count, double current_time)
 	}
 }
 
-/*
-void activate_all(int block){
-	
-	int count;
-	switch(block){
-	case 0:
-		count = MAX_TEMP;
-		break;
-	case 1:
-		count = MAX_CHECK;
-		break;
-	case 2:
-		count = MAX_SECURITY;
-		break;
-	case 3:
-		count = MAX_DROP_OFF;
-		break;
-	}
-
-	activate(block, count);
-}*/
-
 void change_servers(int block, int count, double current_time)
 {
 	deactivate_all(block, current_time);
@@ -239,16 +209,23 @@ int getDestination(enum node_type type, int *dest_type, int mode,
 	double rand;
 	switch (type) {
 	case TEMP:
+		SelectStream(253);
 		*dest_type = 0;
-		return minQueue(servers, 0, 0, pass_type);
+		if (mode == 2 || mode == 3)
+			return minQueue(servers, 0, 0, pass_type);
+		else
+			return Equilikely(0, count_active(0) - 1);
 	case CHECK:
 		SelectStream(252);
 		rand = Random();
 		if (rand < CHECK_PERC * (1 - FEVER_PERC)) {
 			normal++;
-
+			SelectStream(250);
 			*dest_type = 1;
-			return minQueue(servers, 1, mode, pass_type);
+			if (mode == 2 || mode == 3)
+				return minQueue(servers, 1, mode, pass_type);
+			else
+				return Equilikely(0, count_active(1) - 1);
 		} else if (rand <
 			   (CHECK_PERC + ONLINE_PERC) * (1 - FEVER_PERC)) {
 			SelectStream(249);
@@ -256,14 +233,24 @@ int getDestination(enum node_type type, int *dest_type, int mode,
 
 			if (rand < 0.4) {
 				dropoff++;
-
+				SelectStream(248);
 				*dest_type = 3;
-				return minQueue(servers, 3, mode, pass_type);
+				if (mode == 2 || mode == 3)
+					return minQueue(servers, 3, mode,
+							pass_type);
+				else
+					return Equilikely(0,
+							  count_active(3) - 1);
 			} else {
 				online++;
-
+				SelectStream(247);
 				*dest_type = 2;
-				return minQueue(servers, 2, mode, pass_type);
+				if (mode == 2 || mode == 3)
+					return minQueue(servers, 2, mode,
+							pass_type);
+				else
+					return Equilikely(0,
+							  count_active(2) - 1);
 			}
 		} else {
 			febbra++;
@@ -271,8 +258,12 @@ int getDestination(enum node_type type, int *dest_type, int mode,
 			return -1;
 		}
 	case SECURITY:
+		SelectStream(251);
 		*dest_type = 2;
-		return minQueue(servers, 2, mode, pass_type);
+		if (mode == 2 || mode == 3)
+			return minQueue(servers, 2, mode, pass_type);
+		else
+			return Equilikely(0, count_active(2) - 1);
 	default:
 		return 0;
 	}
@@ -284,22 +275,22 @@ double getArrival(double current)
 	double hour = ((int)current / 60) % 24;
 
 	if (hour < 6) {
-		arrival += Exponential(mean_0_6);
+		arr += Exponential(mean_0_6);
 	} else if (hour < 18) {
-		arrival += Exponential(mean_6_18);
+		arr += Exponential(mean_6_18);
 	} else {
-		arrival += Exponential(mean_18_24);
+		arr += Exponential(mean_18_24);
 	}
 
-	return (arrival);
+	return (arr);
 }
 
 double getArrivalStatic()
 {
 	SelectStream(254);
-	arrival += Exponential(arrival_mean);
+	arr += Exponential(arrival_mean);
 
-	return arrival;
+	return arr;
 }
 
 double getService(enum node_type type, int id)
@@ -334,40 +325,11 @@ double getService(enum node_type type, int id)
 int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 	     double *inc, double ets[2], double ets1[2], double ets2[2])
 {
-	/*
-	char response_filename[30] = "";
-	char node_population_filename[30] = "";*/
 	int nodesNumber = n0 + n1 + n2 + n3;
 	cost = 0;
 	income = 0;
-	arrival = 0;
+	arr = 0;
 
-	/*
-	if (mode == 0) {
-		strcpy(response_filename, "response.csv");
-		strcpy(node_population_filename, "node_population.csv");
-	} else {
-		strcpy(response_filename, "response_improved.csv");
-		strcpy(node_population_filename,
-		       "node_population_improved.csv");
-	}
-
-	int fd1 = open(response_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-	int fd2 = open(node_population_filename, O_WRONLY | O_CREAT | O_TRUNC,
-		       0644);
-
-	//TODO changename
-
-	if (fd1 == -1 || fd2 == -1 || fd3 == -1) {
-		perror("open");
-		exit(EXIT_FAILURE);
-	}
-
-	st_file = fdopen(fd1, "w");
-	node_population_file = fdopen(fd2, "w");
-
-	
-	*/
 	int fd3;
 	FILE *samples = NULL;
 
@@ -375,6 +337,10 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 		fd3 = open("infinite_samples.csv", O_WRONLY | O_CREAT | O_TRUNC,
 			   0644);
 		samples = fdopen(fd3, "w");
+		if (fd3 == -1) {
+			perror("open");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	double batch_position = 0;
@@ -398,15 +364,6 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 	double first_class_mean = 0;
 	double first_class_variance = 0;
 	double first_class_stdev;
-
-	/*
-	fprintf(st_file, "TIME, RESPONSE, POPULATION\n");
-	fprintf(node_population_file, "TIME, ID, POPULATION\n");
-
-	if (st_file == NULL || node_population_file == NULL) {
-		perror("fdopen");
-		exit(EXIT_FAILURE);
-	}*/
 
 	struct {
 		double arrival; /* next arrival time */
@@ -579,12 +536,16 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 					}
 
 					if (servers[dest_type][destination]
-						    .number == 1)
+						    .number == 1) {
 						servers[dest_type][destination]
 							.completion =
 							t.current +
 							getService(dest_type,
 								   destination);
+						servers[dest_type][destination]
+							.service_type =
+							pass_type;
+					}
 				} else {
 					number--;
 				}
@@ -593,26 +554,39 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 			case DROP_OFF:
 			case CHECK:
 				if (mode == 0 ||
-				    servers[type][id].head != NULL) {
+				    (servers[type][id].head != NULL &&
+				     servers[type][id].service_type ==
+					     FIRST_CLASS)) {
 					dequeue(&servers[type][id].head,
 						&servers[type][id].tail,
 						&pass_type, &arrival);
-				} else {
+				} else if (mode == 1 &&
+					   (servers[type][id].head == NULL ||
+					    servers[type][id].service_type !=
+						    FIRST_CLASS)) {
+					//} else {
 					dequeue(&servers[type][id].head_second,
 						&servers[type][id].tail_second,
 						&pass_type, &arrival);
 				}
 
-				if (pass_type == FIRST_CLASS)
+				if (pass_type == FIRST_CLASS) {
 					servers[type][id].number1--;
-				else
+				} else {
 					servers[type][id].number2--;
-
-				if (servers[type][id].number > 0)
+					//printf("CHOSE SECOND CLASS\n");
+				}
+				if (servers[type][id].number > 0) {
 					servers[type][id].completion =
 						t.current +
 						getService(type, id);
-				else
+					if (servers[type][id].head != NULL)
+						servers[type][id].service_type =
+							FIRST_CLASS;
+					else
+						servers[type][id].service_type =
+							SECOND_CLASS;
+				} else
 					servers[type][id].completion = INFINITY;
 
 				destination = getDestination(
@@ -638,36 +612,48 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 						.number2++;
 				}
 
-				if (servers[dest_type][destination].number == 1)
+				if (servers[dest_type][destination].number ==
+				    1) {
 					servers[dest_type][destination]
 						.completion =
 						t.current +
 						getService(dest_type,
 							   destination);
-
+					servers[dest_type][destination]
+						.service_type = pass_type;
+				}
 				break;
 			case SECURITY:
 				number--;
 				if (mode == 0 ||
-				    servers[type][id].head != NULL) {
+				    (servers[type][id].head != NULL &&
+				     servers[type][id].service_type ==
+					     FIRST_CLASS)) {
 					dequeue(&servers[type][id].head,
 						&servers[type][id].tail,
 						&pass_type, &arrival);
-				} else {
+				} else if (mode == 1 &&
+					   (servers[type][id].head == NULL ||
+					    servers[type][id].service_type !=
+						    FIRST_CLASS)) {
+					//} else {
 					dequeue(&servers[type][id].head_second,
 						&servers[type][id].tail_second,
 						&pass_type, &arrival);
 				}
 
-				if (pass_type == FIRST_CLASS)
+				if (pass_type == FIRST_CLASS) {
 					servers[type][id].number1--;
-				else
+				} else {
 					servers[type][id].number2--;
+				}
 
 				SelectStream(255);
 				double time_airport =
 					Normal(TIME_IN_AIRPORT, VARIANCE);
 				double response_time = (t.current - arrival);
+				printf("Response time %lf type %d\n",
+				       response_time, pass_type);
 				int spending;
 
 				if (statistics) {
@@ -768,24 +754,28 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 						  spending;
 				}
 
-				if (servers[type][id].number > 0)
+				if (servers[type][id].number > 0) {
 					servers[type][id].completion =
 						t.current +
 						getService(type, id);
-				else
+					if (servers[type][id].head != NULL)
+						servers[type][id].service_type =
+							FIRST_CLASS;
+					else
+						servers[type][id].service_type =
+							SECOND_CLASS;
+				} else
 					servers[type][id].completion = INFINITY;
 
 				break;
 			}
-
-			//fprintf(node_population_file, "%lf, %d, %d\n",t.current, id, servers[type][id].number);
 		}
 	}
 
 	for (int j = 0; j < 4; j++) {
 		int max_servers;
 
-		switch(j) {
+		switch (j) {
 		case TEMP:
 			max_servers = n0;
 			break;
@@ -873,75 +863,27 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 	income -= cost;
 	*inc = income;
 
-	/*
-	fclose(st_file);
-	fclose(node_population_file);
-	*/
-	/*
-	if (mode == 0) {
-		printf("ORIGINAL\n");
-	} else {
-		printf("IMPROVED\n");
-	}
-
-	printf("PASSENGERS\n");
-	printf("Arrivals............... %d\n", tot_arrivals);
-	printf("Completions............ %d\n", tot_completions);
-	printf("First Class............ %d\n", first_class_number);
-	printf("Second Class........... %d\n", second_class_number);
-	printf("Fever.................. %d\n", febbra);
-	printf("Online................. %d\n", online);
-	printf("Dropoff................ %d\n", dropoff);
-
-	printf("\nINCOME:\n");
-	printf("Income for %.1f hours. %lf\n", t.current / 60.0, income);
-
-	printf("\nRESPONSE TIME:\n");
-	printf("Batch size............. %d\n", BATCH_SIZE);
-	printf("Number of batches...... %d\n", (int)batches);
-	printf("Mean................... %lf\n", mean);
-	printf("Variance............... %lf\n", variance);
-	printf("Stdev.................. %lf\n", stdev);
-	printf("Confidence Interval: (%lf, %lf)\n", mean - endpoint,
-	       mean + endpoint);
-
-	printf("\nRESPONSE TIME FOR FIRST CLASS:\n");
-	printf("Mean................... %lf\n", first_class_mean);
-	printf("Variance............... %lf\n", first_class_variance);
-	printf("Stdev.................. %lf\n", first_class_stdev);
-	printf("Confidence Interval: (%lf, %lf)\n",
-	       first_class_mean - first_class_endpoint,
-	       first_class_mean + first_class_endpoint);
-
-	printf("\nRESPONSE TIME FOR SECOND CLASS:\n");
-	printf("Mean................... %lf\n", second_class_mean);
-	printf("Variance............... %lf\n", second_class_variance);
-	printf("Stdev.................. %lf\n", second_class_stdev);
-	printf("Confidence Interval: (%lf, %lf)\n",
-	       second_class_mean - second_class_endpoint,
-	       second_class_mean + second_class_endpoint);
-	*/
-
-	/*
 	printf("\nUTILIZATION:\n");
-	for(int j = 0; j < 4; j++) {
-	for (int i = 0; i < 20; i++) {
-		char type_string[20];
+	for (int j = 0; j < 4; j++) {
+		for (int i = 0; i < 25; i++) {
+			char type_string[20];
 
-		if (j == 0) {
-			strcpy(type_string, "Temperature");
-		} else if (j == 1) {
-			strcpy(type_string, "Checkin");
-		} else if (j == 2) {
-			strcpy(type_string, "Security");
-		} else if (j == 3) {
-			strcpy(type_string, "Dropoff");
+			if (j == 0) {
+				strcpy(type_string, "Temperature");
+			} else if (j == 1) {
+				strcpy(type_string, "Checkin");
+			} else if (j == 2) {
+				strcpy(type_string, "Security");
+			} else if (j == 3) {
+				strcpy(type_string, "Dropoff");
+			}
+			printf("\t%s-%d-Open: %d......utilization: %lf, average population: %lf, %d\n",
+			       type_string, i, servers[j][i].open,
+			       servers[j][i].area.service / t.current,
+			       servers[j][i].area.node / t.current,
+			       servers[j][i].number);
 		}
-		printf("\t%s-%d-Open: %d......utilization: %lf, average population: %lf, %d\n",
-		       type_string, i, servers[j][i].open, servers[j][i].area.service / t.current,
-		       servers[j][i].area.node / t.current, servers[j][i].number);
-		}
-	}*/
+	}
 
 	return 0;
 }
@@ -957,7 +899,8 @@ int infinite_horizon(int mode)
 
 	simulate(1, mode, TEMP_NODE, CHECK_NODE, SECURITY_NODE, DROPOFF_ONLINE,
 		 &inc, ets, ets1, ets2);
-	printf("INCOME: %lf\n", inc);
+	printf("INCOME: %lf\nETS: %lf\nETS1: %lf\nETS2: %lf\n", inc, ets[0],
+	       ets1[0], ets2[0]);
 
 	return 0;
 }
@@ -993,9 +936,9 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 	double completions1 = 0;
 	double completions2 = 0;
 
-	double prev_active_time[4][248];
+	double prev_active_time[4][246];
 
-	arrival = 0;
+	arr = 0;
 	t.current = START; /* set the clock */
 	t.arrival = getArrival(t.current); /* schedule the first arrival */
 
@@ -1069,7 +1012,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 		t.next = min(t.next, turn_change);
 
 		for (int j = 0; j < 4; j++) {
-			for (int i = 0; i < 248; i++) {
+			for (int i = 0; i < 246; i++) {
 				if (servers[j][i].number >
 				    0) { // update integrals
 					servers[j][i].area.node +=
@@ -1135,7 +1078,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 				change_servers(3, n3[1], t.current);
 				total_income[0] = income;
 				for (int j = 0; j < 4; j++) {
-					for (int i = 0; i < 248; i++) {
+					for (int i = 0; i < 246; i++) {
 						cost += SERV_COST *
 							servers[j][i]
 								.active_time;
@@ -1156,7 +1099,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 				change_servers(3, n3[2], t.current);
 				total_income[1] = income;
 				for (int j = 0; j < 4; j++) {
-					for (int i = 0; i < 248; i++) {
+					for (int i = 0; i < 246; i++) {
 						cost += SERV_COST *
 							(servers[j][i]
 								 .active_time -
@@ -1233,12 +1176,16 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 					}
 
 					if (servers[dest_type][destination]
-						    .number == 1)
+						    .number == 1) {
 						servers[dest_type][destination]
 							.completion =
 							t.current +
 							getService(dest_type,
 								   destination);
+						servers[dest_type][destination]
+							.service_type =
+							pass_type;
+					}
 				} else {
 					number--;
 				}
@@ -1247,7 +1194,9 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 			case DROP_OFF:
 			case CHECK:
 				if (mode == 0 ||
-				    servers[type][id].head != NULL) {
+				    (servers[type][id].head != NULL &&
+				     servers[type][id].service_type ==
+					     FIRST_CLASS)) {
 					dequeue(&servers[type][id].head,
 						&servers[type][id].tail,
 						&pass_type, &arrival);
@@ -1262,11 +1211,17 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 				else
 					servers[type][id].number2--;
 
-				if (servers[type][id].number > 0)
+				if (servers[type][id].number > 0) {
 					servers[type][id].completion =
 						t.current +
 						getService(type, id);
-				else
+					if (servers[type][id].head != NULL)
+						servers[type][id].service_type =
+							FIRST_CLASS;
+					else
+						servers[type][id].service_type =
+							SECOND_CLASS;
+				} else
 					servers[type][id].completion = INFINITY;
 
 				destination = getDestination(
@@ -1292,18 +1247,24 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 						.number2++;
 				}
 
-				if (servers[dest_type][destination].number == 1)
+				if (servers[dest_type][destination].number ==
+				    1) {
 					servers[dest_type][destination]
 						.completion =
 						t.current +
 						getService(type, destination);
+					servers[dest_type][destination]
+						.service_type = pass_type;
+				}
 
 				break;
 			case SECURITY:
 				number--;
 
 				if (mode == 0 ||
-				    servers[type][id].head != NULL) {
+				    (servers[type][id].head != NULL &&
+				     servers[type][id].service_type ==
+					     FIRST_CLASS)) {
 					dequeue(&servers[type][id].head,
 						&servers[type][id].tail,
 						&pass_type, &arrival);
@@ -1345,11 +1306,17 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 				ets += response_time;
 				completions++;
 
-				if (servers[type][id].number > 0)
+				if (servers[type][id].number > 0) {
 					servers[type][id].completion =
 						t.current +
 						getService(type, id);
-				else
+					if (servers[type][id].head != NULL)
+						servers[type][id].service_type =
+							FIRST_CLASS;
+					else
+						servers[type][id].service_type =
+							SECOND_CLASS;
+				} else
 					servers[type][id].completion = INFINITY;
 
 				break;
@@ -1366,7 +1333,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 	total_income[2] = income;
 	for (int j = 0; j < 4; j++) {
 		change_servers(j, 0, STOP_FINITE);
-		for (int i = 0; i < 248; i++) {
+		for (int i = 0; i < 246; i++) {
 			cost += SERV_COST * (servers[j][i].active_time -
 					     prev_active_time[j][i]);
 		}
@@ -1483,7 +1450,7 @@ int main(int argc, char **argv)
 	int mode;
 
 	if (argc != 3) {
-		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite> (f finite, i infinite)\n");
+		printf("Usage: simulation <mode> (o original, rp improved routing and priority, r improved routing, p improved priority) <finite-infinite> (f finite, i infinite, r find optimum)\n");
 		return -1;
 	}
 
@@ -1491,10 +1458,14 @@ int main(int argc, char **argv)
 
 	if (!strcmp(argv[1], "o")) {
 		mode = 0;
-	} else if (!strcmp(argv[1], "i")) {
+	} else if (!strcmp(argv[1], "r")) {
+		mode = 2;
+	} else if (!strcmp(argv[1], "p")) {
 		mode = 1;
+	} else if (!strcmp(argv[1], "rp")) {
+		mode = 3;
 	} else {
-		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite-single finite> (f finite, i infinite, s single)\n");
+		printf("Usage: simulation <mode> (o original, rp improved routing and priority, r improved routing, p improved priority) <finite-infinite> (f finite, i infinite, r find optimum)\n");
 		return -1;
 	}
 
@@ -1505,7 +1476,7 @@ int main(int argc, char **argv)
 	} else if (!strcmp(argv[2], "f")) {
 		return finite_horizon_single(mode);
 	} else {
-		printf("Usage: simulation <mode> (o original, i improved) <finite-infinite-single finite> (f finite, i infinite, s single)\n");
+		printf("Usage: simulation <mode> (o original, rp improved routing and priority, r improved routing, p improved priority) <finite-infinite> (f finite, i infinite, r find optimum)\n");
 		return -1;
 	}
 }

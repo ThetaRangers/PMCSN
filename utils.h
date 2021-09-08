@@ -14,6 +14,7 @@ struct area {
 struct node {
 	struct passenger *head;
 	struct passenger *tail;
+	struct passenger in_service;
 	struct passenger *head_second;
 	struct passenger *tail_second;
 	struct area area;
@@ -24,6 +25,7 @@ struct node {
 	int number;
 	int number1;
 	int number2;
+	enum passenger_type service_type;
 	double completion;
 	int id; //Server id
 	enum node_type type;
@@ -32,8 +34,8 @@ struct node {
 double min(double a, double c);
 enum passenger_type getPassenger();
 //double minNode(struct node *nodes, int len, int *id);
-double minNode(struct node nodes[4][248], int *id, int *type);
-int minQueue(struct node nodes[4][248], int type, int mode,
+double minNode(struct node nodes[4][246], int *id, int *type);
+int minQueue(struct node nodes[4][246], int type, int mode,
 	     enum passenger_type pass_type);
 
 #endif
