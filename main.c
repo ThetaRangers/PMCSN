@@ -18,9 +18,9 @@
 #define STOP 10000.0 /* terminal (close the door) time */
 
 #define TEMP_NODE 10
-#define CHECK_NODE 20
-#define SECURITY_NODE 23
-#define DROPOFF_ONLINE 10
+#define CHECK_NODE 25
+#define SECURITY_NODE 30
+#define DROPOFF_ONLINE 7
 #define MAX_SERVERS 246
 
 #define MAX_TEMP 10
@@ -58,14 +58,14 @@
 #define UTIL_THRESHOLD 0.4
 
 #define STOP_FINITE 1440
-#define SAMPLE_INTERVAL 1
+#define SAMPLE_INTERVAL 10
 
 #define N 65536
 
-int finite_temp_node[3] = { 10, 10, 10 };
-int finite_check_node[3] = { 25, 20, 25 };
-int finite_security_node[3] = { 15, 25, 20 };
-int finite_dropoff_node[3] = { 10, 10, 10 };
+int finite_temp_node[3] = { 5, 10, 5};
+int finite_check_node[3] = { 10, 17, 15};
+int finite_security_node[3] = { 20, 23, 17};
+int finite_dropoff_node[3] = { 5, 5, 5};
 
 FILE *st_file; //Service time
 FILE *node_population_file; //Node population
@@ -323,7 +323,7 @@ double getService(enum node_type type, int id)
 }
 
 int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
-	     double *inc, double ets[2], double ets1[2], double ets2[2])
+	     double *inc, double ets[4], double ets1[4], double ets2[4])
 {
 	int nodesNumber = n0 + n1 + n2 + n3;
 	cost = 0;
@@ -841,12 +841,18 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 
 		ets[0] = mean;
 		ets[1] = endpoint;
+		ets[2] = variance;
+		ets[3] = stdev;
 
 		ets1[0] = first_class_mean;
 		ets1[1] = first_class_endpoint;
+		ets1[2] = first_class_variance;
+		ets1[3] = first_class_stdev;
 
 		ets2[0] = second_class_mean;
 		ets2[1] = second_class_endpoint;
+		ets2[2] = second_class_variance;
+		ets2[3] = second_class_stdev;
 
 		fclose(samples);
 	}
@@ -884,15 +890,34 @@ int infinite_horizon(int mode)
 	double inc;
 	cost = 0;
 
-	double ets[2];
-	double ets1[2];
-	double ets2[2];
+	double ets[4];
+	double ets1[4];
+	double ets2[4];
 
 	simulate(1, mode, TEMP_NODE, CHECK_NODE, SECURITY_NODE, DROPOFF_ONLINE,
 		 &inc, ets, ets1, ets2);
-	printf("INCOME: %lf\nETS: %lf\nETS1: %lf\nETS2: %lf\n", inc, ets[0],
-	       ets1[0], ets2[0]);
 
+	printf("\nTOTAL\n");
+	printf("Income:..............%lf\n", income);
+	printf("Response Time:.......%lf\n",ets[0]);
+	printf("Variance:............%lf\n",ets[2]);
+	printf("Stdev:...............%lf\n",ets[3]);
+	printf("Endpoint:............%lf\n",ets[1]);
+	printf("Confidence Interval:.(%lf, %lf)\n", ets[0] - ets[1], ets[0] + ets[1]);
+
+	printf("\nFIRST CLASS\n");
+	printf("Response Time:.......%lf\n",ets1[0]);
+	printf("Variance:............%lf\n",ets1[2]);
+	printf("Stdev:...............%lf\n",ets1[3]);
+	printf("Endpoint:............%lf\n",ets1[1]);
+	printf("Confidence Interval:.(%lf, %lf)\n", ets1[0] - ets1[1], ets1[0] + ets1[1]);
+
+	printf("\nSECOND CLASS\n");
+	printf("Response Time:.......%lf\n",ets2[0]);
+	printf("Variance:............%lf\n",ets2[2]);
+	printf("Stdev:...............%lf\n",ets2[3]);
+	printf("Endpoint:............%lf\n",ets2[1]);
+	printf("Confidence Interval:.(%lf, %lf)\n", ets2[0] - ets2[1], ets2[0] + ets2[1]);
 	return 0;
 }
 
@@ -993,7 +1018,10 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 	int id;
 	int type;
 	int dest_type;
+	double partial_mean = 0;
 
+	double sampling = SAMPLE_INTERVAL;
+	int comp = 0;
 	int turn_change = 360;
 
 	while ((t.arrival < STOP_FINITE)) {
@@ -1001,6 +1029,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 
 		t.next = min(t.arrival, minCompletion);
 		t.next = min(t.next, turn_change);
+		t.next = min(t.next, sampling);
 
 		for (int j = 0; j < 4; j++) {
 			for (int i = 0; i < 246; i++) {
@@ -1059,6 +1088,12 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 							.type,
 						destination);
 
+		} else if(t.current == sampling) {
+			fprintf(st_file, "%lf,%lf\n", t.current,
+					partial_mean);
+			partial_mean = 0;
+			comp = 0;
+			sampling += SAMPLE_INTERVAL;
 		} else if (t.current == turn_change) {
 			switch (turn_change) {
 			case 360:
@@ -1275,9 +1310,6 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 					Normal(TIME_IN_AIRPORT, VARIANCE);
 				double response_time = t.current - arrival;
 
-				fprintf(st_file, "%lf,%lf\n", t.current,
-					response_time);
-
 				double spending;
 				if (pass_type == FIRST_CLASS) {
 					ets1 += response_time;
@@ -1294,6 +1326,11 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 					income += (time_left / time_airport) *
 						  spending;
 				}
+
+				//Welford
+				comp++;
+				double diff = response_time - partial_mean;
+				partial_mean += diff / comp;
 
 				ets += response_time;
 				completions++;
