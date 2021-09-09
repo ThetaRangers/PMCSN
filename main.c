@@ -944,7 +944,6 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 	} t;
 
 	long number = 0; /* Number in the network */
-	double ets = 0;
 	double ets1 = 0;
 	double ets2 = 0;
 
@@ -1019,6 +1018,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 	int type;
 	int dest_type;
 	double partial_mean = 0;
+	double sample_mean = 0;
 
 	double sampling = SAMPLE_INTERVAL;
 	int comp = 0;
@@ -1287,6 +1287,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 				break;
 			case SECURITY:
 				number--;
+				double diff;
 
 				if (mode == 0 || mode == 2 ||
 				    (servers[type][id].head != NULL &&
@@ -1312,12 +1313,16 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 
 				double spending;
 				if (pass_type == FIRST_CLASS) {
-					ets1 += response_time;
 					completions1++;
+					diff = response_time - ets1;
+					ets1 += diff / completions1;
+
 					spending = FIRST_CLASS_SPENDING;
 				} else {
-					ets2 += response_time;
 					completions2++;
+					diff = response_time - ets2;
+					ets2 += diff / completions2;
+
 					spending = SECOND_CLASS_SPENDING;
 				}
 
@@ -1329,11 +1334,13 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 
 				//Welford
 				comp++;
-				double diff = response_time - partial_mean;
+				diff = response_time - partial_mean;
 				partial_mean += diff / comp;
 
-				ets += response_time;
 				completions++;
+				diff = response_time - sample_mean;
+				sample_mean += diff/completions;
+				
 
 				if (servers[type][id].number > 0) {
 					servers[type][id].completion =
@@ -1354,10 +1361,6 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 	}
 
 	t.next = STOP_FINITE;
-
-	ets = ets / completions;
-	ets1 = ets1 / completions1;
-	ets2 = ets2 / completions2;
 
 	total_income[2] = income;
 	for (int j = 0; j < 4; j++) {
@@ -1383,7 +1386,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 
 	fclose(st_file);
 
-	printf("RESPONSE TIME: %lf COMPLETIONS: %0.f\n", ets, completions);
+	printf("RESPONSE TIME: %lf COMPLETIONS: %0.f\n", sample_mean, completions);
 	printf("RESPONSE TIME 1: %lf COMPLETIONS: %0.f\n", ets1, completions1);
 	printf("RESPONSE TIME 2: %lf COMPLETIONS: %0.f\n", ets2, completions2);
 }
