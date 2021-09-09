@@ -59,6 +59,7 @@
 
 #define STOP_FINITE 1440
 #define SAMPLE_INTERVAL 10
+#define REPETITIONS 100
 
 #define N 65536
 
@@ -923,19 +924,8 @@ int infinite_horizon(int mode)
 
 void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 		    double final_income[3], double total_income[3],
-		    double costs[3])
+		    double costs[3], double result[144])
 {
-	int fd1 = open("finite_horizon_response_time.csv",
-		       O_WRONLY | O_CREAT | O_TRUNC, 0644);
-
-	if (fd1 == -1) {
-		perror("open");
-		exit(EXIT_FAILURE);
-	}
-	st_file = fdopen(fd1, "w");
-
-	fprintf(st_file, "TIME,RESPONSETIME\n");
-
 	struct {
 		double arrival; /* next arrival time */
 		double current; /* current time */
@@ -969,6 +959,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 			servers[j][i].number = 0;
 			servers[j][i].number1 = 0;
 			servers[j][i].number2 = 0;
+			servers[j][i].active_time = 0;
 
 			servers[j][i].open = 0;
 
@@ -1089,8 +1080,9 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 						destination);
 
 		} else if(t.current == sampling) {
-			fprintf(st_file, "%lf,%lf\n", t.current,
-					partial_mean);
+			
+			result[(int) t.current / SAMPLE_INTERVAL] = partial_mean;
+
 			partial_mean = 0;
 			comp = 0;
 			sampling += SAMPLE_INTERVAL;
@@ -1383,12 +1375,6 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 			remove_all(&servers[j][i].head_second);
 		}
 	}
-
-	fclose(st_file);
-
-	printf("RESPONSE TIME: %lf COMPLETIONS: %0.f\n", sample_mean, completions);
-	printf("RESPONSE TIME 1: %lf COMPLETIONS: %0.f\n", ets1, completions1);
-	printf("RESPONSE TIME 2: %lf COMPLETIONS: %0.f\n", ets2, completions2);
 }
 
 int repeat_infinite_horizon(int mode)
@@ -1459,32 +1445,123 @@ int repeat_infinite_horizon_h(int mode)
 
 int finite_horizon_single(int mode)
 {
+	int fd1 = open("finite_horizon_response_time.csv",
+		       O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+	if (fd1 == -1) {
+		perror("open");
+		exit(EXIT_FAILURE);
+	}
+	st_file = fdopen(fd1, "w");
+
+	double statistics[STOP_FINITE / SAMPLE_INTERVAL];
+
+	for(int i = 0; i < STOP_FINITE / SAMPLE_INTERVAL; i++) {
+		statistics[i] = 0;
+	}
+	double result[STOP_FINITE / SAMPLE_INTERVAL];
+
 	int *n0 = finite_temp_node;
 	int *n1 = finite_check_node;
 	int *n2 = finite_security_node;
 	int *n3 = finite_dropoff_node;
 
-	double total_income[3];
-	double final_income[3];
-	double costs[3];
+	double total_income[3] = { 0, 0, 0 };
+	double final_income[3] = { 0, 0, 0 };
+	double costs[3] = { 0, 0, 0 };
 
-	finite_horizon(mode, n0, n1, n2, n3, final_income, total_income, costs);
+	double final_variance[3] = {0,0,0};
+	double final_endpoint[3];
+
+	double earning_sum = 0;
+	double variance_earning = 0;
+	double endpoint;
+
+	double repetition_total_income[3] = { 0, 0, 0 };
+	double repetition_final_income[3] = { 0, 0, 0 };
+	double repetition_costs[3] = { 0, 0, 0 };
+	double diff;
+	double t_student;
+
+	for(int i = 1; i <= REPETITIONS; i++) {
+		finite_horizon(mode, n0, n1, n2, n3, repetition_final_income, repetition_total_income, repetition_costs, result);
+
+		diff = repetition_total_income[0] - total_income[0];
+		total_income[0] += diff/i;
+
+		diff = repetition_total_income[1] - total_income[1];
+		total_income[1] += diff/i;
+
+		diff = repetition_total_income[2] - total_income[2];
+		total_income[2] += diff/i;
+
+		diff = repetition_final_income[0] - final_income[0];
+		final_income[0] += diff/i;
+		final_variance[0] += diff * diff * ((i - 1.0) / i);
+
+		diff = repetition_final_income[1] - final_income[1];
+		final_income[1] += diff/i;
+		final_variance[1] += diff * diff * ((i - 1.0) / i);
+
+		diff = repetition_final_income[2] - final_income[2];
+		final_income[2] += diff/i;
+		final_variance[2] += diff * diff * ((i - 1.0) / i);
+
+		double sum = repetition_final_income[0] + repetition_final_income[1] + repetition_final_income[2];
+		diff = sum - earning_sum;
+		earning_sum += diff/i;
+		variance_earning += diff * diff * ((i - 1.0) / i);
+
+		diff = repetition_costs[0] - costs[0];
+		costs[0] += diff/i;
+
+		diff = repetition_costs[1] - costs[1];
+		costs[1] += diff/i;
+
+		diff = repetition_costs[2] - costs[2];
+		costs[2] += diff/i;
+
+		for(int j = 0; j < STOP_FINITE / SAMPLE_INTERVAL; j++) {
+			diff = result[j] - statistics[j];
+			statistics[j] += diff / i;
+		}
+		
+	}
+
+	final_variance[0] = final_variance[0]/REPETITIONS;
+	final_variance[1] = final_variance[1]/REPETITIONS;
+	final_variance[2] = final_variance[2]/REPETITIONS;
+
+	variance_earning = variance_earning/REPETITIONS;
 
 	double income_sum = 0;
 	double cost_sum = 0;
-	double earning_sum = 0;
+
+	t_student = idfStudent(REPETITIONS - 1, 1 - ALFA / 2);
+
+	final_endpoint[0] = t_student * sqrt(final_variance[0]) / sqrt(REPETITIONS - 1);
+	final_endpoint[1] = t_student * sqrt(final_variance[1]) / sqrt(REPETITIONS - 1);
+	final_endpoint[2] = t_student * sqrt(final_variance[2]) / sqrt(REPETITIONS - 1);
+
+	endpoint = t_student * sqrt(variance_earning) / sqrt(REPETITIONS - 1);
+
+	for(int i = 0; i < STOP_FINITE / SAMPLE_INTERVAL; i++) {
+		fprintf(st_file, "%d,%lf\n", i * SAMPLE_INTERVAL,
+					statistics[i]);
+	}
+
+	fclose(st_file);
 
 	for (int i = 0; i < 3; i++) {
-		printf("Phase %d->income: %lf costs: %lf earning: %lf \n",
-		       i + 1, total_income[i], costs[i], final_income[i]);
+		printf("Phase %d->income: %lf costs: %lf earning: %lf variance: %lf, endpoint: %lf\n",
+		       i + 1, total_income[i], costs[i], final_income[i], final_variance[i], final_endpoint[i]);
 
 		income_sum += total_income[i];
 		cost_sum += costs[i];
-		earning_sum += final_income[i];
 	}
 
-	printf("TOTAL->income: %lf costs: %lf earning: %lf \n", income_sum,
-	       cost_sum, earning_sum);
+	printf("TOTAL->income: %lf costs: %lf earning: %lf variance: %lf, endpoint: %lf\n", income_sum,
+	       cost_sum, earning_sum, variance_earning, endpoint);
 
 	return 0;
 }
