@@ -212,7 +212,7 @@ int getDestination(enum node_type type, int *dest_type, int mode,
 		SelectStream(253);
 		*dest_type = 0;
 		if (mode == 2 || mode == 3)
-			return minQueue(servers, 0, 0, pass_type);
+			return minQueue(servers, 0, 2, pass_type);
 		else
 			return Equilikely(0, count_active(0) - 1);
 	case CHECK:
