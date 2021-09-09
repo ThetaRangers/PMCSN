@@ -25,7 +25,7 @@
 
 #define MAX_TEMP 10
 #define MAX_CHECK 30
-#define MAX_SECURITY 25
+#define MAX_SECURITY 30
 #define MAX_DROP_OFF 10
 
 #define TIME_IN_AIRPORT 180
@@ -512,7 +512,7 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 				if (destination != -1) {
 					servers[dest_type][destination].number++;
 
-					if (mode == 0 ||
+					if (mode == 0 || mode == 2 ||
 					    pass_type == FIRST_CLASS) {
 						enqueue(&servers[dest_type]
 								[destination]
@@ -553,18 +553,14 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 				break;
 			case DROP_OFF:
 			case CHECK:
-				if (mode == 0 ||
+				if (mode == 0 || mode == 2 ||
 				    (servers[type][id].head != NULL &&
 				     servers[type][id].service_type ==
 					     FIRST_CLASS)) {
 					dequeue(&servers[type][id].head,
 						&servers[type][id].tail,
 						&pass_type, &arrival);
-				} else if (mode == 1 &&
-					   (servers[type][id].head == NULL ||
-					    servers[type][id].service_type !=
-						    FIRST_CLASS)) {
-					//} else {
+				} else {
 					dequeue(&servers[type][id].head_second,
 						&servers[type][id].tail_second,
 						&pass_type, &arrival);
@@ -593,7 +589,8 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 					SECURITY, &dest_type, mode, pass_type);
 
 				servers[dest_type][destination].number++;
-				if (mode == 0 || pass_type == FIRST_CLASS) {
+				if (mode == 0 || mode == 2 ||
+				    pass_type == FIRST_CLASS) {
 					enqueue(&servers[dest_type][destination]
 							 .head,
 						&servers[dest_type][destination]
@@ -625,18 +622,14 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 				break;
 			case SECURITY:
 				number--;
-				if (mode == 0 ||
+				if (mode == 0 || mode == 2 ||
 				    (servers[type][id].head != NULL &&
 				     servers[type][id].service_type ==
 					     FIRST_CLASS)) {
 					dequeue(&servers[type][id].head,
 						&servers[type][id].tail,
 						&pass_type, &arrival);
-				} else if (mode == 1 &&
-					   (servers[type][id].head == NULL ||
-					    servers[type][id].service_type !=
-						    FIRST_CLASS)) {
-					//} else {
+				} else {
 					dequeue(&servers[type][id].head_second,
 						&servers[type][id].tail_second,
 						&pass_type, &arrival);
@@ -652,8 +645,6 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 				double time_airport =
 					Normal(TIME_IN_AIRPORT, VARIANCE);
 				double response_time = (t.current - arrival);
-				printf("Response time %lf type %d\n",
-				       response_time, pass_type);
 				int spending;
 
 				if (statistics) {
@@ -863,7 +854,7 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 	income -= cost;
 	*inc = income;
 
-	printf("\nUTILIZATION:\n");
+	/*printf("\nUTILIZATION:\n");
 	for (int j = 0; j < 4; j++) {
 		for (int i = 0; i < 25; i++) {
 			char type_string[20];
@@ -883,7 +874,7 @@ int simulate(int statistics, int mode, int n0, int n1, int n2, int n3,
 			       servers[j][i].area.node / t.current,
 			       servers[j][i].number);
 		}
-	}
+	}*/
 
 	return 0;
 }
@@ -1150,7 +1141,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 				if (destination != -1) {
 					servers[dest_type][destination].number++;
 
-					if (mode == 0 ||
+					if (mode == 0 || mode == 2 ||
 					    pass_type == FIRST_CLASS) {
 						enqueue(&servers[dest_type]
 								[destination]
@@ -1193,7 +1184,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 				break;
 			case DROP_OFF:
 			case CHECK:
-				if (mode == 0 ||
+				if (mode == 0 || mode == 2 ||
 				    (servers[type][id].head != NULL &&
 				     servers[type][id].service_type ==
 					     FIRST_CLASS)) {
@@ -1228,7 +1219,8 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 					SECURITY, &dest_type, mode, pass_type);
 
 				servers[dest_type][destination].number++;
-				if (mode == 0 || pass_type == FIRST_CLASS) {
+				if (mode == 0 || mode == 2 ||
+				    pass_type == FIRST_CLASS) {
 					enqueue(&servers[dest_type][destination]
 							 .head,
 						&servers[dest_type][destination]
@@ -1261,7 +1253,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 			case SECURITY:
 				number--;
 
-				if (mode == 0 ||
+				if (mode == 0 || mode == 2 ||
 				    (servers[type][id].head != NULL &&
 				     servers[type][id].service_type ==
 					     FIRST_CLASS)) {
@@ -1359,7 +1351,7 @@ void finite_horizon(int mode, int n0[3], int n1[3], int n2[3], int n3[3],
 	printf("RESPONSE TIME 2: %lf COMPLETIONS: %0.f\n", ets2, completions2);
 }
 
-int repeat_infinite_horizon()
+int repeat_infinite_horizon(int mode)
 {
 	double max_income = -INFINITY;
 	int opt_t = 0;
@@ -1372,43 +1364,55 @@ int repeat_infinite_horizon()
 	double ets1[2];
 	double ets2[2];
 
-	for (int m = 0; m < 2; m++) {
-		printf("Mode %d\n", m);
+	for (int t = 1; t <= MAX_TEMP; t++) {
+		printf("T: %d\n", t);
+		fflush(stdout);
+		for (int c = 1; c <= MAX_CHECK; c++) {
+			printf("C: %d\n", c);
+			fflush(stdout);
+			for (int s = 1; s <= MAX_SECURITY; s++) {
+				for (int d = 1; d <= MAX_DROP_OFF; d++) {
+					income = 0;
+					cost = 0;
 
-		for (int t = 1; t < MAX_TEMP; t++) {
-			printf("T: %d\n", t);
-			for (int c = 1; c < MAX_CHECK; c++) {
-				printf("C: %d\n", c);
-				for (int s = 1; s < MAX_SECURITY; s++) {
-					for (int d = 1; d < MAX_DROP_OFF; d++) {
-						income = 0;
-						cost = 0;
+					PlantSeeds(SEED);
+					simulate(0, mode, t, c, s, d,
+						 &temp_income, ets, ets1, ets2);
+					//printf("Income %d-%d-%d-%d: %lf\n", t,c,s,d,temp_income);
+					if (temp_income > max_income) {
+						max_income = temp_income;
+						opt_t = t;
+						opt_c = c;
+						opt_s = s;
+						opt_d = d;
 
-						PlantSeeds(SEED);
-						simulate(0, m, t, c, s, d,
-							 &temp_income, ets,
-							 ets1, ets2);
-						//printf("Income %d-%d-%d-%d: %lf\n", t,c,s,d,temp_income);
-						if (temp_income > max_income) {
-							max_income =
-								temp_income;
-							opt_t = t;
-							opt_c = c;
-							opt_s = s;
-							opt_d = d;
-
-							//printf("New Optimum:%d-%d-%d-%d %lf", opt_t, opt_c, opt_s, opt_d, max_income);
-						}
+						//printf("New Optimum:%d-%d-%d-%d %lf", opt_t, opt_c, opt_s, opt_d, max_income);
 					}
 				}
 			}
 		}
-
-		printf("OPTIMUM mode:%d for %d-%d-%d-%d: with %lf\n", m, opt_t,
-		       opt_c, opt_s, opt_d, max_income);
-
-		max_income = -INFINITY;
 	}
+	printf("OPTIMUM mode:%d for %d-%d-%d-%d: with %lf\n", mode, opt_t,
+	       opt_c, opt_s, opt_d, max_income);
+	fflush(stdout);
+
+	return 0;
+}
+
+int repeat_infinite_horizon_h(int mode)
+{
+	arrival_mean = mean_0_6;
+	printf("0-6:\n");
+	fflush(stdout);
+	repeat_infinite_horizon(mode);
+	arrival_mean = mean_6_18;
+	printf("6-18:\n");
+	fflush(stdout);
+	repeat_infinite_horizon(mode);
+	arrival_mean = mean_18_24;
+	printf("18-24:\n");
+	fflush(stdout);
+	repeat_infinite_horizon(mode);
 
 	return 0;
 }
@@ -1470,7 +1474,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[2], "r")) {
-		return repeat_infinite_horizon();
+		return repeat_infinite_horizon_h(mode);
 	} else if (!strcmp(argv[2], "i")) {
 		return infinite_horizon(mode);
 	} else if (!strcmp(argv[2], "f")) {

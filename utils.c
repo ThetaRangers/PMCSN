@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "list.h"
 #include "rngs.h"
 #include "rvgs.h"
 #include <math.h>
@@ -14,6 +15,7 @@ double min(double a, double c)
 
 enum passenger_type getPassenger()
 {
+	SelectStream(246);
 	long res = Bernoulli(0.4);
 
 	if (res == 1)
@@ -53,7 +55,7 @@ int minQueue(struct node nodes[4][246], int type, int mode,
 
 	//consider only open nodes
 	while (nodes[type][i].open && i < 246) {
-		if (mode == 0 || mode == 1 || pass_type == SECOND_CLASS) {
+		if (mode == 2 || pass_type == SECOND_CLASS) {
 			if (nodes[type][i].number < nodes[type][id].number) {
 				id = i;
 			}
@@ -65,7 +67,7 @@ int minQueue(struct node nodes[4][246], int type, int mode,
 		i++;
 	}
 
-	if (mode == 2 || mode == 3) {
+	if (mode == 3 && pass_type == FIRST_CLASS) {
 		i = 0;
 		while (nodes[type][i].open && i < 246) {
 			if (nodes[type][i].number1 == nodes[type][id].number1 &&
@@ -78,7 +80,7 @@ int minQueue(struct node nodes[4][246], int type, int mode,
 
 	i = 0;
 	while (nodes[type][i].open && i < 246) {
-		if (mode == 0 || mode == 1 || pass_type == SECOND_CLASS) {
+		if (mode == 2 || pass_type == SECOND_CLASS) {
 			if (nodes[type][i].number == nodes[type][id].number) {
 				minimum_array[minimum_index] = i;
 				minimum_index++;
