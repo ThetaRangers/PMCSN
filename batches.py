@@ -2,7 +2,7 @@ import pandas as pd
 
 b = 1024
 j_batches = 1
-j = 1
+j = 100
 
 df = pd.read_csv ('infinite_samples.csv')
 n = df[df.columns[0]].count()
@@ -56,12 +56,14 @@ sample_mean_batches = sample_mean_batches/len(batches)
 for i in range(0,len(batches) - j_batches):
 	autocorrelation_batches += (batches[i] - sample_mean_batches) * (batches[i+j_batches] - sample_mean_batches)
 
-autocorrelation_batches = autocorrelation_batches/(n-j_batches)
+autocorrelation_batches = autocorrelation_batches/(len(batches)-j_batches)
 
 print(f"\nBatch size: {b} K: {len(batches)}")
 print(f"Batche mean: {sample_mean_batches}")
 print(f"Autocorrelation batches with lag {j_batches}: {autocorrelation_batches}")
 
-r = autocorrelation_batches/sample_variance
+r_batches = autocorrelation_batches/sample_variance
+r = autocorrelation/sample_variance
 
+print(f"batches r{j_batches}:{r_batches}")
 print(f"r{j}:{r}")
